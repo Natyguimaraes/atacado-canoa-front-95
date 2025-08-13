@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const CadastroProduto = () => {
   const { isAdmin } = useAuth();
@@ -91,8 +92,24 @@ const CadastroProduto = () => {
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          name: formData.name,
+          description: formData.description || null,
+          category: formData.category,
+          price: parseFloat(formData.price),
+          original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
+          sizes: formData.sizes,
+          colors: formData.colors,
+          images: formData.images,
+          is_new: formData.isNew,
+          is_featured: formData.isFeatured,
+        });
+
+      if (error) {
+        throw new Error(error.message);
+      }
       
       toast({
         title: 'Sucesso!',
@@ -100,10 +117,10 @@ const CadastroProduto = () => {
       });
       
       navigate('/admin/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Erro',
-        description: 'Erro ao cadastrar produto. Tente novamente.',
+        description: error.message || 'Erro ao cadastrar produto. Tente novamente.',
         variant: 'destructive',
       });
     } finally {

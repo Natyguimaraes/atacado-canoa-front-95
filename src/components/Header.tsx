@@ -11,7 +11,7 @@ import logo from '@/assets/logo.png';
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { totalItems } = useCart();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, profile, isAuthenticated, isAdmin, logout } = useAuth();
 
   const navigation = [
     { name: 'Início', href: '#home' },
@@ -99,7 +99,7 @@ const Header = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <div className="font-medium">{user?.name}</div>
+                    <div className="font-medium">{profile?.full_name || user?.email}</div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -108,7 +108,7 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/pedidos">Meus Pedidos</Link>
                   </DropdownMenuItem>
-                  {user?.role === 'admin' && (
+                  {isAdmin && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>

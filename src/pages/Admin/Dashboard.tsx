@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 
 const Dashboard = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   
   // Redirect if not admin
   if (!isAdmin) {
@@ -114,7 +114,7 @@ const Dashboard = () => {
                   Painel Administrativo
                 </h1>
                 <p className="text-muted-foreground">
-                  Bem-vindo, {user?.name}
+                  Bem-vindo, {profile?.full_name || user?.email}
                 </p>
               </div>
             </div>
