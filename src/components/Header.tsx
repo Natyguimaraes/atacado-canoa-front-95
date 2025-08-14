@@ -108,6 +108,9 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/pedidos">Meus Pedidos</Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/configuracoes">Configurações</Link>
+                  </DropdownMenuItem>
                   {isAdmin && (
                     <>
                       <DropdownMenuSeparator />
