@@ -93,6 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkUserRole = async (userId: string) => {
     try {
+      // Check if user is admin by email
+      if (user?.email === 'admin@atacadocanoa.com') {
+        setIsAdmin(true);
+        return;
+      }
+
+      // Fallback: check in user_roles table
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import { supabase } from '@/integrations/supabase/client';
 import babyClothes from '@/assets/baby-clothes.jpg';
 import kidsClothes from '@/assets/kids-clothes.jpg';
 import adultClothes from '@/assets/adult-clothes.jpg';
@@ -17,81 +18,56 @@ const Produtos = () => {
   const [category, setCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock products data
-  const products = [
-    {
-      id: '1',
-      name: 'Conjunto Bebê Menino Básico',
-      price: 24.90,
-      originalPrice: 39.90,
-      image: babyClothes,
-      category: 'bebe',
-      sizes: ['P', 'M', 'G'],
-      isNew: true,
-    },
-    {
-      id: '2',
-      name: 'Vestido Infantil Floral',
-      price: 32.50,
-      image: kidsClothes,
-      category: 'infantil',
-      sizes: ['2', '4', '6', '8', '10'],
-    },
-    {
-      id: '3',
-      name: 'Camiseta Adulto Premium',
-      price: 19.90,
-      originalPrice: 29.90,
-      image: adultClothes,
-      category: 'adulto',
-      sizes: ['P', 'M', 'G', 'GG'],
-    },
-    {
-      id: '4',
-      name: 'Macacão Bebê Unissex',
-      price: 28.90,
-      image: babyClothes,
-      category: 'bebe',
-      sizes: ['RN', 'P', 'M'],
-      isNew: true,
-    },
-    {
-      id: '5',
-      name: 'Shorts Infantil Colorido',
-      price: 18.90,
-      image: kidsClothes,
-      category: 'infantil',
-      sizes: ['2', '4', '6', '8'],
-    },
-    {
-      id: '6',
-      name: 'Blusa Feminina Manga Longa',
-      price: 35.90,
-      originalPrice: 49.90,
-      image: adultClothes,
-      category: 'adulto',
-      sizes: ['P', 'M', 'G'],
-    },
-    {
-      id: '7',
-      name: 'Body Bebê Estampado',
-      price: 22.90,
-      image: babyClothes,
-      category: 'bebe',
-      sizes: ['RN', 'P', 'M'],
-    },
-    {
-      id: '8',
-      name: 'Conjunto Infantil Esportivo',
-      price: 42.90,
-      image: kidsClothes,
-      category: 'infantil',
-      sizes: ['4', '6', '8', '10', '12'],
-      isNew: true,
-    },
-  ];
+  const categoryImages = {
+    bebe: babyClothes,
+    infantil: kidsClothes,
+    adulto: adultClothes,
+  };
+
+  // Fetch products from Supabase
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        return;
+      }
+
+      // Transform data to match existing format
+      const transformedProducts = data?.map(product => ({
+        id: product.id,
+        name: product.name,
+        price: Number(product.price),
+        originalPrice: product.original_price ? Number(product.original_price) : undefined,
+        image: product.images[0] || categoryImages[product.category as keyof typeof categoryImages],
+        category: product.category,
+        sizes: product.sizes,
+        colors: product.colors,
+        isNew: product.is_new,
+        isFeatured: product.is_featured,
+        description: product.description,
+      })) || [];
+
+      setProducts(transformedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     let filtered = products;
@@ -122,7 +98,7 @@ const Produtos = () => {
     });
 
     setFilteredProducts(filtered);
-  }, [searchTerm, category, sortBy]);
+  }, [searchTerm, category, sortBy, products]);
 
   const categories = [
     { value: 'all', label: 'Todas as Categorias' },
@@ -216,95 +192,112 @@ const Produtos = () => {
         </Card>
 
         {/* Results Summary */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-muted-foreground">
-            {filteredProducts.length} {filteredProducts.length === 1 ? 'produto encontrado' : 'produtos encontrados'}
-          </p>
-          
-          {category !== 'all' && (
-            <Badge variant="outline" className="flex items-center gap-2">
-              {categories.find(cat => cat.value === category)?.label}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-4 w-4 p-0 hover:bg-transparent"
-                onClick={() => setCategory('all')}
-              >
-                ×
-              </Button>
-            </Badge>
-          )}
-        </div>
-
-        {/* Products Grid */}
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} {...product} />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden">
-                <div className="flex flex-col sm:flex-row">
-                  <div className="relative w-full sm:w-48 aspect-square sm:aspect-[4/5]">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {product.isNew && (
-                      <Badge className="absolute top-2 left-2 bg-success text-success-foreground">
-                        Novo
-                      </Badge>
-                    )}
-                  </div>
-                  <CardContent className="flex-1 p-6">
-                    <div className="flex flex-col h-full justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                          {categories.find(cat => cat.value === product.category)?.label}
-                        </p>
-                        <h3 className="font-medium text-lg mb-2">{product.name}</h3>
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {product.sizes.map((size) => (
-                            <Badge key={size} variant="outline" className="text-xs">
-                              {size}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-lg text-primary">
-                            R$ {product.price.toFixed(2).replace('.', ',')}
-                          </span>
-                          {product.originalPrice && (
-                            <span className="text-sm text-muted-foreground line-through">
-                              R$ {product.originalPrice.toFixed(2).replace('.', ',')}
-                            </span>
-                          )}
-                        </div>
-                        <Button>Adicionar ao Carrinho</Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </div>
-              </Card>
-            ))}
+        {!isLoading && (
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-muted-foreground">
+              {filteredProducts.length} {filteredProducts.length === 1 ? 'produto encontrado' : 'produtos encontrados'}
+            </p>
+            
+            {category !== 'all' && (
+              <Badge variant="outline" className="flex items-center gap-2">
+                {categories.find(cat => cat.value === category)?.label}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                  onClick={() => setCategory('all')}
+                >
+                  ×
+                </Button>
+              </Badge>
+            )}
           </div>
         )}
 
-        {/* No Results */}
-        {filteredProducts.length === 0 && (
-          <Card className="p-12 text-center">
-            <div className="text-muted-foreground">
-              <Filter className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="font-medium text-lg mb-2">Nenhum produto encontrado</h3>
-              <p>Tente ajustar os filtros ou buscar por outros termos.</p>
-            </div>
-          </Card>
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, index) => (
+              <div key={index} className="animate-pulse">
+                <div className="bg-muted rounded-lg aspect-[4/5] mb-4"></div>
+                <div className="h-4 bg-muted rounded mb-2"></div>
+                <div className="h-4 bg-muted rounded w-2/3"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Products Grid */}
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} {...product} />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredProducts.map((product) => (
+                  <Card key={product.id} className="overflow-hidden">
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="relative w-full sm:w-48 aspect-square sm:aspect-[4/5]">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                        {product.isNew && (
+                          <Badge className="absolute top-2 left-2 bg-success text-success-foreground">
+                            Novo
+                          </Badge>
+                        )}
+                      </div>
+                      <CardContent className="flex-1 p-6">
+                        <div className="flex flex-col h-full justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+                              {categories.find(cat => cat.value === product.category)?.label}
+                            </p>
+                            <h3 className="font-medium text-lg mb-2">{product.name}</h3>
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {product.sizes.map((size: string) => (
+                                <Badge key={size} variant="outline" className="text-xs">
+                                  {size}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-lg text-primary">
+                                R$ {product.price.toFixed(2).replace('.', ',')}
+                              </span>
+                              {product.originalPrice && (
+                                <span className="text-sm text-muted-foreground line-through">
+                                  R$ {product.originalPrice.toFixed(2).replace('.', ',')}
+                                </span>
+                              )}
+                            </div>
+                            <Button>Adicionar ao Carrinho</Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* No Results */}
+            {filteredProducts.length === 0 && (
+              <Card className="p-12 text-center">
+                <div className="text-muted-foreground">
+                  <Filter className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <h3 className="font-medium text-lg mb-2">Nenhum produto encontrado</h3>
+                  <p>Tente ajustar os filtros ou buscar por outros termos.</p>
+                </div>
+              </Card>
+            )}
+          </>
         )}
       </main>
 
