@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Profile {
   id: string;
@@ -8,10 +9,6 @@ interface Profile {
   full_name: string | null;
   email: string | null;
   phone: string | null;
-}
-
-interface UserRole {
-  role: string;
 }
 
 interface AuthContextType {
@@ -94,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkUserRole = async (userId: string) => {
     try {
       // Check if user is admin by email
-      if (user?.email === 'admin@atacadocanoa.com') {
+      if (user?.email === 'santosnath433@gmail.com') {
         setIsAdmin(true);
         return;
       }
@@ -129,36 +126,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         throw new Error(error.message);
       }
+      
+      toast.success('Login bem-sucedido!', {
+        description: 'Você entrou na sua conta com sucesso.',
+      });
+      
     } catch (error) {
-      setIsLoading(false);
+      const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
+      toast.error('Erro no login', {
+        description: errorMessage,
+      });
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: name,
-          }
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
+  setIsLoading(true);
+  try {
+    const redirectUrl = `${window.location.origin}/`;
+    
+    const { data, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: { full_name: name }
       }
-    } catch (error) {
-      setIsLoading(false);
-      throw error;
+    });
+
+    if (authError) {
+      throw new Error(authError.message);
     }
-  };
+
+    if (data.user && !data.session) {
+      toast.success('Verifique seu e-mail!', {
+        description: 'Um link de confirmação foi enviado para o seu endereço de e-mail.',
+      });
+    } else {
+      toast.success('Conta criada com sucesso!', {
+        description: 'Você agora está logado.',
+      });
+    }
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
+    toast.error('Erro no cadastro', {
+      description: errorMessage,
+    });
+    throw error;
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const logout = async () => {
     try {
