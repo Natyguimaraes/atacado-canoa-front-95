@@ -163,8 +163,10 @@ const Carrinho = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <Button className="w-full" size="lg">
-                    Finalizar Compra
+                  <Button className="w-full" size="lg" asChild>
+                    <Link to="/pagamento">
+                      Finalizar Compra
+                    </Link>
                   </Button>
                   
                   <Button variant="outline" className="w-full" asChild>

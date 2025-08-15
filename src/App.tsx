@@ -12,6 +12,8 @@ import Produtos from "./pages/Produtos";
 import Carrinho from "./pages/Carrinho";
 import Dashboard from "./pages/Admin/Dashboard";
 import CadastroProduto from "./pages/Admin/CadastroProduto";
+import EstoqueManagement from "./pages/Admin/EstoqueManagement";
+import Pagamento from "./pages/Pagamento";
 import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +35,8 @@ const App = () => (
               <Route path="/carrinho" element={<Carrinho />} />
               <Route path="/admin/dashboard" element={<Dashboard />} />
               <Route path="/admin/cadastro-produto" element={<CadastroProduto />} />
+              <Route path="/admin/estoque" element={<EstoqueManagement />} />
+              <Route path="/pagamento" element={<Pagamento />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -119,12 +119,20 @@ const Dashboard = () => {
               </div>
             </div>
             
-            <Button asChild>
-              <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Novo Produto
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button asChild>
+                <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Novo Produto
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/admin/estoque" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Gerenciar Estoque
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
