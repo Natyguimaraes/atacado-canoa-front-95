@@ -84,6 +84,38 @@ const Pagamento = () => {
     }).format(price);
   };
 
+  const handleZipCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ''); // Remove caracteres não numéricos
+    
+    // Aplica máscara CEP
+    if (value.length > 5) {
+      value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    }
+    
+    setShippingData(prev => ({ ...prev, zipCode: value }));
+    
+    // Busca endereço quando CEP tem 8 dígitos
+    if (value.replace(/\D/g, '').length === 8) {
+      try {
+        const cep = value.replace(/\D/g, '');
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await response.json();
+        
+        if (data && !data.erro) {
+          setShippingData(prev => ({
+            ...prev,
+            address: data.logradouro || '',
+            neighborhood: data.bairro || '',
+            city: data.localidade || '',
+            state: data.uf || ''
+          }));
+        }
+      } catch (error) {
+        console.error('Erro ao buscar CEP:', error);
+      }
+    }
+  };
+
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStep('payment');
@@ -318,16 +350,17 @@ const Pagamento = () => {
                           required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="zipCode">CEP *</Label>
-                        <Input
-                          id="zipCode"
-                          value={shippingData.zipCode}
-                          onChange={(e) => setShippingData(prev => ({ ...prev, zipCode: e.target.value }))}
-                          placeholder="44380-000"
-                          required
-                        />
-                      </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="zipCode">CEP *</Label>
+                         <Input
+                           id="zipCode"
+                           value={shippingData.zipCode}
+                           onChange={handleZipCodeChange}
+                           placeholder="44380-000"
+                           maxLength={9}
+                           required
+                         />
+                       </div>
                     </div>
 
                     <div className="space-y-2">
