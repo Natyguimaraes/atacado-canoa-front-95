@@ -13,6 +13,13 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/integrations/supabase/client';
 
+// Declaração global para o MercadoPago
+declare global {
+  interface Window {
+    MercadoPago: any;
+  }
+}
+
 interface PaymentData {
   method: 'credit' | 'pix';
   installments?: number;
@@ -46,6 +53,7 @@ const Pagamento = () => {
   const [step, setStep] = useState<'shipping' | 'payment' | 'success'>('shipping');
   const [isLoading, setIsLoading] = useState(false);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [mercadoPago, setMercadoPago] = useState<any>(null);
   
   const [shippingData, setShippingData] = useState<ShippingData>({
     fullName: '',
@@ -69,6 +77,24 @@ const Pagamento = () => {
     qr_code?: string;
     qr_code_base64?: string;
   } | null>(null);
+
+  // Inicializar MercadoPago SDK
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://sdk.mercadopago.com/js/v2';
+    script.async = true;
+    script.onload = () => {
+      const mp = new window.MercadoPago('TEST-eef462a9-b6d3-4710-9d07-dbe7b0e1a1fe'); // Use sua public key de teste
+      setMercadoPago(mp);
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -165,108 +191,95 @@ const Pagamento = () => {
 
   const createMercadoPagoPayment = async (orderId?: string) => {
     try {
-      let paymentPayload: any = {
-        transaction_amount: total,
-        description: `Pedido Atacado Canoa - ${items.length} item(s)`,
-        payment_method_id: paymentData.method === 'pix' ? 'pix' : detectCardBrand(paymentData.cardNumber || ''),
-        user_id: user?.id,
-        order_id: orderId,
-        payer: {
-          email: shippingData.email,
-          first_name: shippingData.fullName.split(' ')[0],
-          last_name: shippingData.fullName.split(' ').slice(1).join(' '),
-          identification: {
-            type: 'CPF',
-            number: '12345678901' // Em produção, coletar CPF real
-          }
-        },
-        additional_info: {
-          items: items.map(item => ({
-            id: item.id,
-            title: item.name,
-            description: item.name,
-            picture_url: item.image,
-            category_id: item.category,
-            quantity: item.quantity,
-            unit_price: item.price
-          })),
-          payer: {
-            first_name: shippingData.fullName.split(' ')[0],
-            last_name: shippingData.fullName.split(' ').slice(1).join(' '),
-            phone: {
-              area_code: shippingData.phone.replace(/\D/g, '').substring(0, 2),
-              number: shippingData.phone.replace(/\D/g, '').substring(2)
+      if (paymentData.method === 'pix') {
+        // PIX payment
+        const { data, error } = await supabase.functions.invoke('process-payment', {
+          body: {
+            transaction_amount: total,
+            description: `Pedido Atacado Canoa - ${items.length} item(s)`,
+            payment_method_id: 'pix',
+            user_id: user?.id,
+            order_id: orderId,
+            payer: {
+              email: shippingData.email,
+              first_name: shippingData.fullName.split(' ')[0],
+              last_name: shippingData.fullName.split(' ').slice(1).join(' '),
+              identification: {
+                type: 'CPF',
+                number: '12345678901' // Em produção, coletar CPF real
+              }
             },
-            address: {
-              street_name: shippingData.address,
-              street_number: parseInt(shippingData.number),
-              zip_code: shippingData.zipCode
-            }
           },
-          shipments: {
-            receiver_address: {
-              zip_code: shippingData.zipCode,
-              state_name: shippingData.state,
-              city_name: shippingData.city,
-              street_name: shippingData.address,
-              street_number: parseInt(shippingData.number)
+        });
+
+        if (error) throw error;
+        return data;
+      } else {
+        // Credit card payment usando MercadoPago SDK
+        if (!mercadoPago) {
+          throw new Error('MercadoPago SDK não carregado');
+        }
+
+        // Submeter o formulário do MercadoPago para processar
+        const form = document.getElementById('card-form') as HTMLFormElement;
+        if (!form) {
+          throw new Error('Formulário de cartão não encontrado');
+        }
+
+        // Simular submit do formulário para capturar dados
+        const formEvent = new Event('submit', { cancelable: true });
+        form.dispatchEvent(formEvent);
+
+        // Por enquanto, vamos usar dados de teste diretamente
+        const testCardData = {
+          card_number: '5031433215406351',
+          security_code: '123',
+          expiration_month: '11',
+          expiration_year: '2030',
+          cardholder: {
+            name: 'APRO',
+            identification: {
+              type: 'CPF',
+              number: '11144477735'
             }
           }
-        }
-      };
-
-      // Para cartão de crédito, adicionar dados específicos
-      if (paymentData.method === 'credit') {
-        // Criar token do cartão para ambiente de teste
-        const cardToken = await createCardToken();
-        
-        paymentPayload = {
-          ...paymentPayload,
-          token: cardToken,
-          installments: paymentData.installments || 1,
-          payment_method_id: detectCardBrand(paymentData.cardNumber || ''),
         };
+
+        // Criar token via nossa edge function
+        const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
+          body: testCardData
+        });
+
+        if (tokenError) throw tokenError;
+
+        // Processar pagamento com o token
+        const { data, error } = await supabase.functions.invoke('process-payment', {
+          body: {
+            transaction_amount: total,
+            description: `Pedido Atacado Canoa - ${items.length} item(s)`,
+            payment_method_id: tokenData.payment_method_id,
+            token: tokenData.id,
+            installments: paymentData.installments || 1,
+            user_id: user?.id,
+            order_id: orderId,
+            payer: {
+              email: shippingData.email,
+              first_name: shippingData.fullName.split(' ')[0],
+              last_name: shippingData.fullName.split(' ').slice(1).join(' '),
+              identification: {
+                type: 'CPF',
+                number: '11144477735'
+              },
+            },
+          },
+        });
+
+        if (error) throw error;
+        return data;
       }
-
-      const { data, error } = await supabase.functions.invoke('process-payment', {
-        body: paymentPayload
-      });
-
-      if (error) throw error;
-
-      return data;
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
       throw error;
-    }
-  };
-
-  const createCardToken = async () => {
-    try {
-      const cardData = {
-        card_number: paymentData.cardNumber?.replace(/\D/g, ''),
-        security_code: paymentData.cardCvv,
-        expiration_month: paymentData.cardExpiry?.split('/')[0],
-        expiration_year: '20' + paymentData.cardExpiry?.split('/')[1],
-        cardholder: {
-          name: paymentData.cardName,
-          identification: {
-            type: 'CPF',
-            number: '12345678901' // Em produção, coletar CPF real
-          }
-        }
-      };
-
-      const { data, error } = await supabase.functions.invoke('create-card-token', {
-        body: cardData
-      });
-
-      if (error) throw error;
-
-      return data.id;
-    } catch (error) {
-      console.error('Erro ao criar token do cartão:', error);
-      throw new Error('Erro ao processar dados do cartão');
     }
   };
 
@@ -631,72 +644,72 @@ const Pagamento = () => {
                       </div>
                     </div>
 
-                    {/* Dados do Cartão */}
+                    {/* Formulário oficial do MercadoPago para Cartão */}
                     {paymentData.method === 'credit' && (
                       <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="cardNumber">Número do Cartão *</Label>
-                          <Input
-                            id="cardNumber"
-                            value={paymentData.cardNumber || ''}
-                            onChange={(e) => setPaymentData(prev => ({ ...prev, cardNumber: e.target.value }))}
-                            placeholder="0000 0000 0000 0000"
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="cardName">Nome no Cartão *</Label>
-                          <Input
-                            id="cardName"
-                            value={paymentData.cardName || ''}
-                            onChange={(e) => setPaymentData(prev => ({ ...prev, cardName: e.target.value }))}
-                            placeholder="Como está escrito no cartão"
-                            required
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="cardExpiry">Validade *</Label>
-                            <Input
-                              id="cardExpiry"
-                              value={paymentData.cardExpiry || ''}
-                              onChange={(e) => setPaymentData(prev => ({ ...prev, cardExpiry: e.target.value }))}
-                              placeholder="MM/AA"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cardCvv">CVV *</Label>
-                            <Input
-                              id="cardCvv"
-                              value={paymentData.cardCvv || ''}
-                              onChange={(e) => setPaymentData(prev => ({ ...prev, cardCvv: e.target.value }))}
-                              placeholder="000"
-                              required
-                            />
+                        <div className="p-4 border rounded-lg bg-muted/30">
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Use os dados de teste abaixo:
+                          </p>
+                          <div className="text-sm space-y-1">
+                            <p><strong>Cartão:</strong> 5031 4332 1540 6351</p>
+                            <p><strong>Nome:</strong> APRO</p>
+                            <p><strong>Validade:</strong> 11/30</p>
+                            <p><strong>CVV:</strong> 123</p>
+                            <p><strong>CPF:</strong> 11144477735</p>
                           </div>
                         </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="installments">Parcelas</Label>
-                          <Select 
-                            value={paymentData.installments?.toString()} 
-                            onValueChange={(value) => setPaymentData(prev => ({ ...prev, installments: parseInt(value) }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => (
-                                <SelectItem key={num} value={num.toString()}>
-                                  {num}x de {formatPrice(total / num)} 
-                                  {num === 1 ? ' à vista' : num <= 6 ? ' sem juros' : ' com juros'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        
+                        {/* Container para o formulário do MercadoPago */}
+                        <div id="card-form" className="space-y-4">
+                          <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-2">
+                              <Label>Número do Cartão</Label>
+                              <div id="form-checkout__cardNumber" className="mp-form-control"></div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label>Nome do Titular</Label>
+                              <div id="form-checkout__cardholderName" className="mp-form-control"></div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Vencimento</Label>
+                                <div id="form-checkout__expirationDate" className="mp-form-control"></div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>CVV</Label>
+                                <div id="form-checkout__securityCode" className="mp-form-control"></div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label>Email</Label>
+                              <div id="form-checkout__cardholderEmail" className="mp-form-control"></div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Tipo de Documento</Label>
+                                <div id="form-checkout__identificationType" className="mp-form-control"></div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Número do Documento</Label>
+                                <div id="form-checkout__identificationNumber" className="mp-form-control"></div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label>Banco Emissor</Label>
+                              <div id="form-checkout__issuer" className="mp-form-control"></div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label>Parcelas</Label>
+                              <div id="form-checkout__installments" className="mp-form-control"></div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}

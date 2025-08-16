@@ -170,3 +170,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Estilos para os campos do MercadoPago */
+.mp-form-control {
+  @apply w-full px-3 py-2 text-sm bg-background border border-input rounded-md;
+  @apply ring-offset-background placeholder:text-muted-foreground;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.mp-form-control input {
+  @apply w-full border-0 bg-transparent p-0 outline-none;
+}
+
+.mp-form-control select {
+  @apply w-full border-0 bg-transparent p-0 outline-none;
+}
