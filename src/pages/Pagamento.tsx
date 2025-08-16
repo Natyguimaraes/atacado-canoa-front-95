@@ -163,12 +163,14 @@ const Pagamento = () => {
     return 'visa'; // default
   };
 
-  const createMercadoPagoPayment = async () => {
+  const createMercadoPagoPayment = async (orderId?: string) => {
     try {
       let paymentPayload: any = {
         transaction_amount: total,
         description: `Pedido Atacado Canoa - ${items.length} item(s)`,
         payment_method_id: paymentData.method === 'pix' ? 'pix' : detectCardBrand(paymentData.cardNumber || ''),
+        user_id: user?.id,
+        order_id: orderId,
         payer: {
           email: shippingData.email,
           first_name: shippingData.fullName.split(' ')[0],
@@ -273,8 +275,29 @@ const Pagamento = () => {
     setIsLoading(true);
 
     try {
-      // Criar pagamento no Mercado Pago
-      const paymentResponse = await createMercadoPagoPayment();
+      // Criar pedido no banco de dados primeiro
+      const orderInsert = {
+        user_id: user?.id || '',
+        total_amount: total,
+        status: 'pending',
+        payment_method: paymentData.method === 'pix' ? 'pix' : 'credit_card',
+        shipping_data: shippingData as any,
+        items: items as any
+      };
+
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert(orderInsert)
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error('Erro ao criar pedido:', orderError);
+        throw new Error('Erro ao criar pedido');
+      }
+
+      // Criar pagamento no Mercado Pago com o ID do pedido
+      const paymentResponse = await createMercadoPagoPayment(orderData.id);
       
       if (paymentResponse.status === 'approved' || paymentResponse.status === 'pending') {
         setPaymentId(paymentResponse.id);
@@ -287,26 +310,17 @@ const Pagamento = () => {
           });
         }
         
-        // Criar pedido no banco de dados
-        const orderInsert = {
-          user_id: user?.id || '',
-          total_amount: total,
-          status: paymentResponse.status === 'approved' ? 'processing' : 'pending',
-          payment_id: paymentResponse.id,
-          payment_method: paymentData.method === 'pix' ? 'pix' : 'credit_card',
-          shipping_data: shippingData as any,
-          items: items as any
-        };
-
-        const { data: orderData, error: orderError } = await supabase
+        // Atualizar pedido com ID do pagamento
+        const { error: updateError } = await supabase
           .from('orders')
-          .insert(orderInsert)
-          .select()
-          .single();
+          .update({
+            payment_id: paymentResponse.id,
+            status: paymentResponse.status === 'approved' ? 'processing' : 'pending'
+          })
+          .eq('id', orderData.id);
 
-        if (orderError) {
-          console.error('Erro ao criar pedido:', orderError);
-          // Continuar mesmo com erro no banco para não bloquear o pagamento
+        if (updateError) {
+          console.error('Erro ao atualizar pedido:', updateError);
         }
 
         // Limpar carrinho

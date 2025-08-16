@@ -33,16 +33,16 @@ serve(async (req) => {
       cardholder_name: cardData.cardholder.name
     });
 
-    const publicKey = Deno.env.get('MERCADO_PAGO_PUBLIC_KEY');
-    if (!publicKey) {
-      throw new Error('Public Key do Mercado Pago não configurada');
+    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    if (!accessToken) {
+      throw new Error('Access Token do Mercado Pago não configurado');
     }
 
     // Criar token do cartão via API do Mercado Pago
     const tokenResponse = await fetch('https://api.mercadopago.com/v1/card_tokens', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${publicKey}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(cardData),

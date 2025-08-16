@@ -21,6 +21,8 @@ interface PaymentRequest {
   token?: string;
   installments?: number;
   additional_info?: any;
+  user_id?: string;
+  order_id?: string;
 }
 
 serve(async (req) => {
@@ -35,12 +37,20 @@ serve(async (req) => {
     console.log('Processando pagamento:', {
       amount: paymentData.transaction_amount,
       method: paymentData.payment_method_id,
-      email: paymentData.payer.email
+      email: paymentData.payer.email,
+      user_id: paymentData.user_id
     });
 
     const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
     if (!accessToken) {
       throw new Error('Token do Mercado Pago não configurado');
+    }
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Configurações do Supabase não encontradas');
     }
 
     // Criar pagamento no Mercado Pago
@@ -67,6 +77,48 @@ serve(async (req) => {
       status: paymentResult.status,
       status_detail: paymentResult.status_detail
     });
+
+    // Salvar pagamento no banco de dados
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Determinar metadata baseado no tipo de pagamento
+    let metadata = null;
+    if (paymentData.payment_method_id === 'pix' && paymentResult.point_of_interaction) {
+      metadata = {
+        qrCodeBase64: paymentResult.point_of_interaction.transaction_data.qr_code_base64,
+        qrCode: paymentResult.point_of_interaction.transaction_data.qr_code,
+        expirationDate: paymentResult.date_of_expiration
+      };
+    } else if (paymentData.payment_method_id !== 'pix' && paymentData.token) {
+      metadata = {
+        cardId: paymentData.token
+      };
+    }
+
+    // Inserir pagamento na tabela payments
+    const { data: paymentRecord, error: dbError } = await supabase
+      .from('payments')
+      .insert({
+        user_id: paymentData.user_id,
+        order_id: paymentData.order_id,
+        method: paymentData.payment_method_id === 'pix' ? 'PIX' : 'CARD',
+        status: paymentResult.status?.toUpperCase() || 'PENDING',
+        amount: paymentData.transaction_amount,
+        provider: 'MERCADO_PAGO',
+        external_id: paymentResult.id.toString(),
+        metadata: metadata,
+        paid_at: paymentResult.status === 'approved' ? new Date().toISOString() : null
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Erro ao salvar pagamento no banco:', dbError);
+      // Não falhar a operação se o banco falhar, mas logar o erro
+    } else {
+      console.log('Pagamento salvo no banco:', paymentRecord?.id);
+    }
 
     // Criar resposta base
     let response = {
