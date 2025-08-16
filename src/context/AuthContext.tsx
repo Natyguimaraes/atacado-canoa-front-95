@@ -3,11 +3,11 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-interface Profile {
+interface Profile { 
   id: string;
   user_id: string;
   full_name: string | null;
-  email: string | null;
+  email: string | null; 
   phone: string | null;
 }
 
@@ -214,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider'); 
   }
   return context;
 }

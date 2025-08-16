@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const CadastroProduto = () => {
   const { isAdmin } = useAuth();
-  const { toast } = useToast();
+  
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -32,6 +32,7 @@ const CadastroProduto = () => {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Redirect if not admin
   if (!isAdmin) {
@@ -65,7 +66,7 @@ const CadastroProduto = () => {
   };
 
   const availableColors = [
-    'Branco', 'Preto', 'Azul', 'Vermelho', 'Verde', 'Amarelo', 
+    'Branco', 'Preto', 'Azul', 'Vermelho', 'Verde', 'Amarelo',
     'Rosa', 'Roxo', 'Cinza', 'Marrom', 'Laranja', 'Bege'
   ];
 
@@ -87,41 +88,95 @@ const CadastroProduto = () => {
     }));
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    const fileName = `${Date.now()}-${file.name.replace(/\s/g, '-')}`;
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (error) {
+        throw new Error('Erro ao fazer upload da imagem.');
+      }
+      
+      const publicURL = supabase.storage
+        .from('product-images')
+        .getPublicUrl(data.path).data.publicUrl;
+
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, publicURL],
+      }));
+      
+      toast.success('Imagem adicionada!', {
+        description: 'A imagem foi carregada com sucesso.',
+      });
+
+    } catch (error: any) {
+      toast.error('Erro no upload', {
+        description: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.sizes.length === 0) {
+      toast.error("Erro de Validação", {
+        description: "Por favor, selecione pelo menos um tamanho.",
+      });
+      return;
+    }
+    if (formData.images.length === 0) {
+      toast.error("Erro de Validação", {
+        description: "Por favor, adicione pelo menos uma imagem.",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('products')
-        .insert({
-          name: formData.name,
-          description: formData.description || null,
-          category: formData.category,
-          price: parseFloat(formData.price),
-          original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
-          sizes: formData.sizes,
-          colors: formData.colors,
-          images: formData.images,
-          is_new: formData.isNew,
-          is_featured: formData.isFeatured,
-        });
+      const { error } = await supabase.from("products").insert({
+        name: formData.name,
+        description: formData.description || null,
+        category: formData.category,
+        price: parseFloat(formData.price),
+        original_price: formData.originalPrice
+          ? parseFloat(formData.originalPrice)
+          : null,
+        sizes: formData.sizes,
+        colors: formData.colors,
+        images: formData.images,
+        is_new: formData.isNew,
+        is_featured: formData.isFeatured,
+      });
 
       if (error) {
         throw new Error(error.message);
       }
-      
-      toast({
-        title: 'Sucesso!',
-        description: 'Produto cadastrado com sucesso.',
+      toast.success("Produto cadastrado com sucesso!", {
+        description: "Você pode ver o produto na lista.",
       });
-      
-      navigate('/admin/dashboard');
-    } catch (error: any) {
-      toast({
-        title: 'Erro',
-        description: error.message || 'Erro ao cadastrar produto. Tente novamente.',
-        variant: 'destructive',
+      navigate("/admin/dashboard");
+    } catch (error: unknown) {
+      let errorMessage = "Ocorreu um erro desconhecido. Tente novamente.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error("Erro ao cadastrar produto", {
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -272,14 +327,36 @@ const CadastroProduto = () => {
                 {/* Images */}
                 <div className="space-y-2">
                   <Label>Imagens do Produto</Label>
-                  <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
+                  <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center relative cursor-pointer">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
                     <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <p className="text-muted-foreground mb-2">
-                      Arraste imagens aqui ou clique para selecionar
+                      Clique para selecionar uma imagem
                     </p>
-                    <Button variant="outline" type="button">
-                      Selecionar Imagens
-                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-4 mt-4">
+                    {formData.images.map((image, index) => (
+                      <div key={index} className="relative w-24 h-24 rounded-md overflow-hidden">
+                        <img src={image} alt={`Produto ${index + 1}`} className="w-full h-full object-cover" />
+                        <Button 
+                          type="button" 
+                          variant="destructive" 
+                          size="icon" 
+                          className="absolute top-1 right-1 h-6 w-6"
+                          onClick={() => setFormData(prev => ({ 
+                            ...prev, 
+                            images: prev.images.filter((_, i) => i !== index)
+                          }))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

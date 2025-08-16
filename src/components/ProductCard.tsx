@@ -1,8 +1,12 @@
-import { Heart, ShoppingCart, Eye } from 'lucide-react';
+import { useState } from 'react';
+import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+// NOVA LINHA
+import { toast } from 'sonner';
 
 interface ProductCardProps {
   id: string;
@@ -15,6 +19,7 @@ interface ProductCardProps {
   isNew?: boolean;
   discount?: number;
   className?: string;
+  onAddToCart: (selectedSize: string) => void;
 }
 
 const ProductCard = ({
@@ -27,12 +32,30 @@ const ProductCard = ({
   sizes,
   isNew = false,
   discount,
-  className
+  className,
+  onAddToCart,
 }: ProductCardProps) => {
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  // LINHA REMOVIDA
+  // const { toast } = useToast();
+
   const hasDiscount = originalPrice && originalPrice > price;
   const discountPercentage = hasDiscount 
     ? Math.round(((originalPrice - price) / originalPrice) * 100)
     : discount;
+
+  const handleAddToCart = () => {
+    if (!selectedSize) {
+      toast.error('Erro de Validação', {
+        description: 'Por favor, selecione um tamanho antes de adicionar ao carrinho.',
+      });
+      return;
+    }
+    onAddToCart(selectedSize);
+    toast.success('Produto adicionado!', {
+      description: `${name} foi adicionado ao seu carrinho.`,
+    });
+  };
 
   return (
     <Card className={cn(
@@ -61,21 +84,9 @@ const ProductCard = ({
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <Button size="icon" variant="outline" className="h-8 w-8 bg-background/80 backdrop-blur">
-            <Heart className="h-3 w-3" />
-            <span className="sr-only">Adicionar aos favoritos</span>
-          </Button>
-          <Button size="icon" variant="outline" className="h-8 w-8 bg-background/80 backdrop-blur">
-            <Eye className="h-3 w-3" />
-            <span className="sr-only">Visualização rápida</span>
-          </Button>
-        </div>
-
         {/* Quick Add to Cart */}
         <div className="absolute bottom-2 left-2 right-2 z-10 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-          <Button className="w-full h-8 text-xs">
+          <Button className="w-full h-8 text-xs" onClick={handleAddToCart}>
             <ShoppingCart className="h-3 w-3 mr-1" />
             Adicionar ao Carrinho
           </Button>
@@ -94,19 +105,19 @@ const ProductCard = ({
             {name}
           </h3>
 
-          {/* Sizes */}
-          <div className="flex flex-wrap gap-1">
-            {sizes.slice(0, 4).map((size) => (
-              <Badge key={size} variant="outline" className="text-xs px-1 py-0">
-                {size}
-              </Badge>
-            ))}
-            {sizes.length > 4 && (
-              <Badge variant="outline" className="text-xs px-1 py-0">
-                +{sizes.length - 4}
-              </Badge>
-            )}
-          </div>
+          {/* Seletor de Tamanho */}
+          <Select value={selectedSize || ''} onValueChange={setSelectedSize}>
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue placeholder="Selecione o tamanho" />
+            </SelectTrigger>
+            <SelectContent>
+              {sizes.map((size) => (
+                <SelectItem key={size} value={size}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Price */}
           <div className="flex items-center gap-2">

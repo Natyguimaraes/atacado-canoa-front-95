@@ -12,15 +12,32 @@ import { supabase } from '@/integrations/supabase/client';
 import babyClothes from '@/assets/baby-clothes.jpg';
 import kidsClothes from '@/assets/kids-clothes.jpg';
 import adultClothes from '@/assets/adult-clothes.jpg';
+import { useCart } from '@/context/CartContext';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  category: string;
+  sizes: string[];
+  colors: string[];
+  isNew: boolean;
+  isFeatured: boolean;
+  description?: string;
+}
 
 const Produtos = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [products, setProducts] = useState<any[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const { addToCart } = useCart();
 
   const categoryImages = {
     bebe: babyClothes,
@@ -28,7 +45,6 @@ const Produtos = () => {
     adulto: adultClothes,
   };
 
-  // Fetch products from Supabase
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
@@ -42,8 +58,7 @@ const Produtos = () => {
         return;
       }
 
-      // Transform data to match existing format
-      const transformedProducts = data?.map(product => ({
+      const transformedProducts: Product[] = data?.map(product => ({
         id: product.id,
         name: product.name,
         price: Number(product.price),
@@ -72,19 +87,16 @@ const Produtos = () => {
   useEffect(() => {
     let filtered = products;
 
-    // Filter by category
     if (category !== 'all') {
       filtered = filtered.filter(product => product.category === category);
     }
 
-    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      ); 
     }
 
-    // Sort products
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'price-low':
@@ -231,7 +243,12 @@ const Produtos = () => {
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} {...product} />
+                  <ProductCard 
+                    key={product.id} 
+                    {...product} 
+                    // NOVO: Passar o produto e a função de adicionar ao carrinho
+                    onAddToCart={(selectedSize: string) => addToCart(product, selectedSize)} 
+                  />
                 ))}
               </div>
             ) : (
@@ -277,7 +294,8 @@ const Produtos = () => {
                                 </span>
                               )}
                             </div>
-                            <Button>Adicionar ao Carrinho</Button>
+                            {/* NOVO: Adicionar o onClick ao botão na visualização de lista */}
+                            <Button onClick={() => addToCart(product, product.sizes[0])}>Adicionar ao Carrinho</Button>
                           </div>
                         </div>
                       </CardContent>
@@ -286,7 +304,7 @@ const Produtos = () => {
                 ))}
               </div>
             )}
-
+            
             {/* No Results */}
             {filteredProducts.length === 0 && (
               <Card className="p-12 text-center">
