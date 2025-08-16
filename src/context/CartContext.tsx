@@ -75,20 +75,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return;
     
     try {
-      const { data, error } = await supabase
-        .from('carts')
-        .select('items')
-        .eq('user_id', user.id)
-        .single();
+      // TODO: Re-enable after types are updated
+      // const { data, error } = await supabase
+      //   .from('carts')
+      //   .select('items')
+      //   .eq('user_id', user.id)
+      //   .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading cart from database:', error);
-        return;
-      }
+      // if (error && error.code !== 'PGRST116') {
+      //   console.error('Error loading cart from database:', error);
+      //   return;
+      // }
 
-      if (data?.items) {
-        setItems(data.items as CartItem[]);
-      }
+      // if (data?.items) {
+      //   setItems(data.items as CartItem[]);
+      // }
+      
+      // Fallback to localStorage for now
+      loadCartFromLocalStorage();
     } catch (error) {
       console.error('Error loading cart from database:', error);
       // Fallback to localStorage if database fails
@@ -100,16 +104,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return;
     
     try {
-      const { error } = await supabase
-        .from('carts')
-        .upsert({
-          user_id: user.id,
-          items: items
-        });
+      // TODO: Re-enable after types are updated
+      // const { error } = await supabase
+      //   .from('carts')
+      //   .upsert({
+      //     user_id: user.id,
+      //     items: items
+      //   });
 
-      if (error) {
-        console.error('Error saving cart to database:', error);
-      }
+      // if (error) {
+      //   console.error('Error saving cart to database:', error);
+      // }
+      
+      // Use localStorage for now
+      saveCartToLocalStorage();
     } catch (error) {
       console.error('Error saving cart to database:', error);
     }
