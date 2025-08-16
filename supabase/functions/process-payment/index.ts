@@ -82,8 +82,13 @@ serve(async (req) => {
         ...response,
         pix_qr_code: paymentResult.point_of_interaction.transaction_data.qr_code,
         pix_qr_code_base64: paymentResult.point_of_interaction.transaction_data.qr_code_base64,
-        pix_copy_paste: paymentResult.point_of_interaction.transaction_data.qr_code,
       };
+      
+      console.log('PIX criado com sucesso:', {
+        id: paymentResult.id,
+        status: paymentResult.status,
+        qr_code_length: paymentResult.point_of_interaction.transaction_data.qr_code?.length || 0
+      });
     }
 
     return new Response(JSON.stringify(response), {

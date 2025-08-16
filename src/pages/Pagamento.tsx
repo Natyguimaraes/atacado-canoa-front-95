@@ -65,6 +65,11 @@ const Pagamento = () => {
     installments: 1,
   });
 
+  const [pixData, setPixData] = useState<{
+    qr_code?: string;
+    qr_code_base64?: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -174,13 +179,13 @@ const Pagamento = () => {
             quantity: item.quantity,
             unit_price: item.price
           })),
-          payer: {
-            first_name: shippingData.fullName.split(' ')[0],
-            last_name: shippingData.fullName.split(' ').slice(1).join(' '),
-            phone: {
-              area_code: shippingData.phone.substring(1, 3),
-              number: shippingData.phone.substring(3)
-            },
+            payer: {
+              first_name: shippingData.fullName.split(' ')[0],
+              last_name: shippingData.fullName.split(' ').slice(1).join(' '),
+              phone: {
+                area_code: shippingData.phone.replace(/\D/g, '').substring(0, 2),
+                number: shippingData.phone.replace(/\D/g, '').substring(2)
+              },
             address: {
               street_name: shippingData.address,
               street_number: parseInt(shippingData.number),
@@ -232,6 +237,14 @@ const Pagamento = () => {
       if (paymentResponse.status === 'approved' || paymentResponse.status === 'pending') {
         setPaymentId(paymentResponse.id);
         
+        // Para PIX, salvar dados do QR Code
+        if (paymentData.method === 'pix' && paymentResponse.pix_qr_code) {
+          setPixData({
+            qr_code: paymentResponse.pix_qr_code,
+            qr_code_base64: paymentResponse.pix_qr_code_base64
+          });
+        }
+        
         // Criar pedido no banco de dados
         const orderInsert = {
           user_id: user?.id || '',
@@ -281,22 +294,71 @@ const Pagamento = () => {
   if (step === 'success') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="p-8 text-center">
-            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-foreground mb-4">
-              Pedido Realizado!
-            </h1>
-            <p className="text-muted-foreground mb-6">
-              {paymentData.method === 'pix' 
-                ? 'Seu PIX foi gerado. Complete o pagamento para confirmar seu pedido.'
-                : 'Seu pagamento foi processado com sucesso!'}
-            </p>
-            {paymentId && (
-              <p className="text-sm text-muted-foreground mb-6">
-                ID do Pagamento: {paymentId}
+        <Card className="max-w-2xl w-full mx-4">
+          <CardContent className="p-8">
+            <div className="text-center mb-6">
+              <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-foreground mb-4">
+                Pedido Realizado!
+              </h1>
+              <p className="text-muted-foreground mb-4">
+                {paymentData.method === 'pix' 
+                  ? 'Escaneie o QR Code PIX abaixo para finalizar o pagamento:'
+                  : 'Seu pagamento foi processado com sucesso!'}
               </p>
+              {paymentId && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  ID do Pagamento: {paymentId}
+                </p>
+              )}
+            </div>
+
+            {/* PIX QR Code */}
+            {paymentData.method === 'pix' && pixData && (
+              <div className="border rounded-lg p-6 mb-6 bg-card">
+                <div className="text-center space-y-4">
+                  <h3 className="font-semibold text-lg">Pagamento PIX</h3>
+                  
+                  {pixData.qr_code_base64 && (
+                    <div className="flex justify-center">
+                      <img 
+                        src={`data:image/png;base64,${pixData.qr_code_base64}`}
+                        alt="QR Code PIX"
+                        className="w-64 h-64 border rounded"
+                      />
+                    </div>
+                  )}
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Código PIX (Copiar e Colar):</Label>
+                    <div className="mt-2 p-3 bg-muted rounded border flex items-center gap-2">
+                      <Input 
+                        value={pixData.qr_code || ''} 
+                        readOnly 
+                        className="font-mono text-xs"
+                        onClick={(e) => e.currentTarget.select()}
+                      />
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          navigator.clipboard.writeText(pixData.qr_code || '');
+                          toast({ title: 'Código PIX copiado!' });
+                        }}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>• Abra o app do seu banco</p>
+                    <p>• Escaneie o QR Code ou cole o código PIX</p>
+                    <p>• Confirme o pagamento de {formatPrice(total)}</p>
+                  </div>
+                </div>
+              </div>
             )}
+
             <div className="space-y-3">
               <Button asChild className="w-full">
                 <Link to="/pedidos">Ver Meus Pedidos</Link>
