@@ -42,10 +42,12 @@ serve(async (req) => {
     const tokenResponse = await fetch('https://api.mercadopago.com/v1/card_tokens', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${publicKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(cardData),
+      body: JSON.stringify({
+        ...cardData,
+        public_key: publicKey
+      }),
     });
 
     if (!tokenResponse.ok) {
