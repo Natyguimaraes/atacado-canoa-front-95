@@ -68,7 +68,7 @@ serve(async (req) => {
       status_detail: paymentResult.status_detail
     });
 
-    // Para PIX, incluir informações do QR Code
+    // Criar resposta base
     let response = {
       id: paymentResult.id,
       status: paymentResult.status,
@@ -77,6 +77,7 @@ serve(async (req) => {
       payment_method_id: paymentResult.payment_method_id,
     };
 
+    // Para PIX, incluir informações do QR Code
     if (paymentData.payment_method_id === 'pix' && paymentResult.point_of_interaction) {
       response = {
         ...response,
@@ -88,6 +89,17 @@ serve(async (req) => {
         id: paymentResult.id,
         status: paymentResult.status,
         qr_code_length: paymentResult.point_of_interaction.transaction_data.qr_code?.length || 0
+      });
+    }
+
+    // Para cartão de crédito, incluir informações de installments
+    if (paymentData.payment_method_id !== 'pix') {
+      console.log('Pagamento com cartão criado:', {
+        id: paymentResult.id,
+        status: paymentResult.status,
+        status_detail: paymentResult.status_detail,
+        installments: paymentData.installments || 1,
+        payment_method: paymentResult.payment_method_id
       });
     }
 

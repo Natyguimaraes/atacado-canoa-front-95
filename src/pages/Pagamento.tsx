@@ -154,12 +154,21 @@ const Pagamento = () => {
     setStep('payment');
   };
 
+  const detectCardBrand = (cardNumber: string) => {
+    const cleanNumber = cardNumber.replace(/\D/g, '');
+    if (cleanNumber.startsWith('4')) return 'visa';
+    if (cleanNumber.startsWith('5') || cleanNumber.startsWith('2')) return 'master';
+    if (cleanNumber.startsWith('3')) return 'amex';
+    if (cleanNumber.startsWith('6')) return 'elo';
+    return 'visa'; // default
+  };
+
   const createMercadoPagoPayment = async () => {
     try {
-      const paymentPayload = {
+      let paymentPayload: any = {
         transaction_amount: total,
         description: `Pedido Atacado Canoa - ${items.length} item(s)`,
-        payment_method_id: paymentData.method === 'pix' ? 'pix' : 'visa',
+        payment_method_id: paymentData.method === 'pix' ? 'pix' : detectCardBrand(paymentData.cardNumber || ''),
         payer: {
           email: shippingData.email,
           first_name: shippingData.fullName.split(' ')[0],
@@ -179,13 +188,13 @@ const Pagamento = () => {
             quantity: item.quantity,
             unit_price: item.price
           })),
-            payer: {
-              first_name: shippingData.fullName.split(' ')[0],
-              last_name: shippingData.fullName.split(' ').slice(1).join(' '),
-              phone: {
-                area_code: shippingData.phone.replace(/\D/g, '').substring(0, 2),
-                number: shippingData.phone.replace(/\D/g, '').substring(2)
-              },
+          payer: {
+            first_name: shippingData.fullName.split(' ')[0],
+            last_name: shippingData.fullName.split(' ').slice(1).join(' '),
+            phone: {
+              area_code: shippingData.phone.replace(/\D/g, '').substring(0, 2),
+              number: shippingData.phone.replace(/\D/g, '').substring(2)
+            },
             address: {
               street_name: shippingData.address,
               street_number: parseInt(shippingData.number),
@@ -204,13 +213,17 @@ const Pagamento = () => {
         }
       };
 
-      // Para cartão de crédito, adicionar dados do cartão
+      // Para cartão de crédito, adicionar dados específicos
       if (paymentData.method === 'credit') {
-        Object.assign(paymentPayload, {
-          token: 'card_token_id', // Em produção, usar token real do cartão
-          installments: paymentData.installments,
-          payment_method_id: 'visa' // Detectar bandeira automaticamente
-        });
+        // Criar token do cartão para ambiente de teste
+        const cardToken = await createCardToken();
+        
+        paymentPayload = {
+          ...paymentPayload,
+          token: cardToken,
+          installments: paymentData.installments || 1,
+          payment_method_id: detectCardBrand(paymentData.cardNumber || ''),
+        };
       }
 
       const { data, error } = await supabase.functions.invoke('process-payment', {
@@ -223,6 +236,35 @@ const Pagamento = () => {
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
       throw error;
+    }
+  };
+
+  const createCardToken = async () => {
+    try {
+      const cardData = {
+        card_number: paymentData.cardNumber?.replace(/\D/g, ''),
+        security_code: paymentData.cardCvv,
+        expiration_month: paymentData.cardExpiry?.split('/')[0],
+        expiration_year: '20' + paymentData.cardExpiry?.split('/')[1],
+        cardholder: {
+          name: paymentData.cardName,
+          identification: {
+            type: 'CPF',
+            number: '12345678901' // Em produção, coletar CPF real
+          }
+        }
+      };
+
+      const { data, error } = await supabase.functions.invoke('create-card-token', {
+        body: cardData
+      });
+
+      if (error) throw error;
+
+      return data.id;
+    } catch (error) {
+      console.error('Erro ao criar token do cartão:', error);
+      throw new Error('Erro ao processar dados do cartão');
     }
   };
 
