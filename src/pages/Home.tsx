@@ -1,4 +1,5 @@
 import { ArrowRight, Star, Users, Truck, Shield, Phone } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -121,9 +122,11 @@ const Home = () => {
                 Moda para todas as idades e estilos. Do bebê ao adulto, tudo em um só lugar com qualidade e preço justo.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-gradient-primary text-white shadow-glow">
-                  Ver Produtos
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Button size="lg" className="bg-gradient-primary text-white shadow-glow" asChild>
+                  <Link to="/produtos">
+                    Ver Produtos
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild>
                   <a href="tel:+5575997129454" className="flex items-center gap-2">
@@ -167,10 +170,10 @@ const Home = () => {
                   </div>
                   <CardContent className="p-4">
                     <Button variant="outline" className="w-full" asChild>
-                      <a href={category.link}>
+                      <Link to={category.link}>
                         Ver Produtos
                         <ArrowRight className="ml-2 h-4 w-4" />
-                      </a>
+                      </Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -198,9 +201,11 @@ const Home = () => {
             </div>
             
             <div className="text-center mt-12">
-              <Button size="lg" variant="outline">
-                Ver Todos os Produtos
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/produtos">
+                  Ver Todos os Produtos
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
             </div>
           </div>
