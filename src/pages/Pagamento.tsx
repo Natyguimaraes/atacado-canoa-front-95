@@ -1,33 +1,19 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Smartphone, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { supabase } from '../integrations/supabase/client';
+import { CreditCard, QrCode, Copy, Check, Loader2, ArrowLeft } from 'lucide-react';
+import { useToast } from '../hooks/use-toast';
+import { initMercadoPago } from '@mercadopago/sdk-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
-// Declaração global para o MercadoPago
-declare global {
-  interface Window {
-    MercadoPago: any;
-  }
-}
-
-interface PaymentData {
-  method: 'credit' | 'pix';
-  installments?: number;
-  cardNumber?: string;
-  cardName?: string;
-  cardExpiry?: string;
-  cardCvv?: string;
-}
+// Inicializar MercadoPago com a chave pública
+initMercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
 
 interface ShippingData {
   fullName: string;
@@ -42,21 +28,40 @@ interface ShippingData {
   state: string;
 }
 
+interface CardData {
+  cardNumber: string;
+  cardholderName: string;
+  expiryDate: string;
+  cvv: string;
+  identificationType: string;
+  identificationNumber: string;
+}
+
+interface PaymentData {
+  method: 'pix' | 'credit';
+  installments?: number;
+}
+
+interface PixData {
+  qrCode: string;
+  qrCodeBase64: string;
+  paymentId: string;
+}
+
 const Pagamento = () => {
   const { user, isAuthenticated } = useAuth();
   const { items, totalPrice, clearCart } = useCart();
   const total = totalPrice;
   const { toast } = useToast();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const [step, setStep] = useState<'shipping' | 'payment' | 'success'>('shipping');
-  const [isLoading, setIsLoading] = useState(false);
-  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [step, setStep] = useState<'shipping' | 'payment' | 'pix-payment'>('shipping');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [mercadoPago, setMercadoPago] = useState<any>(null);
-  
+  const [copied, setCopied] = useState(false);
+
   const [shippingData, setShippingData] = useState<ShippingData>({
-    fullName: '',
+    fullName: user?.user_metadata?.full_name || '',
     email: user?.email || '',
     phone: '',
     zipCode: '',
@@ -68,15 +73,21 @@ const Pagamento = () => {
     state: '',
   });
 
+  const [cardData, setCardData] = useState<CardData>({
+    cardNumber: '',
+    cardholderName: '',
+    expiryDate: '',
+    cvv: '',
+    identificationType: 'CPF',
+    identificationNumber: '',
+  });
+
   const [paymentData, setPaymentData] = useState<PaymentData>({
     method: 'pix',
     installments: 1,
   });
 
-  const [pixData, setPixData] = useState<{
-    qr_code?: string;
-    qr_code_base64?: string;
-  } | null>(null);
+  const [pixData, setPixData] = useState<PixData | null>(null);
 
   // Inicializar MercadoPago SDK
   useEffect(() => {
@@ -84,7 +95,7 @@ const Pagamento = () => {
     script.src = 'https://sdk.mercadopago.com/js/v2';
     script.async = true;
     script.onload = () => {
-      const mp = new window.MercadoPago('TEST-eef462a9-b6d3-4710-9d07-dbe7b0e1a1fe'); // Use sua public key de teste
+      const mp = new (window as any).MercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
       setMercadoPago(mp);
     };
     document.body.appendChild(script);
@@ -95,81 +106,6 @@ const Pagamento = () => {
       }
     };
   }, []);
-
-  // Inicializar formulário de cartão do MercadoPago
-  useEffect(() => {
-    if (mercadoPago && step === 'payment' && paymentData.method === 'credit') {
-      const initializeCardForm = () => {
-        try {
-          const cardForm = mercadoPago.cardForm({
-            amount: total.toString(),
-            autoMount: true,
-            form: {
-              id: "card-form",
-              cardholderName: {
-                id: "form-checkout__cardholderName",
-                placeholder: "Nome do titular"
-              },
-              cardholderEmail: {
-                id: "form-checkout__cardholderEmail", 
-                placeholder: "E-mail"
-              },
-              cardNumber: {
-                id: "form-checkout__cardNumber",
-                placeholder: "Número do cartão"
-              },
-              expirationDate: {
-                id: "form-checkout__expirationDate",
-                placeholder: "MM/AAAA"
-              },
-              securityCode: {
-                id: "form-checkout__securityCode",
-                placeholder: "CVV"
-              },
-              installments: {
-                id: "form-checkout__installments",
-                placeholder: "Parcelas"
-              },
-              identificationType: {
-                id: "form-checkout__identificationType",
-                placeholder: "Tipo de documento"
-              },
-              identificationNumber: {
-                id: "form-checkout__identificationNumber",
-                placeholder: "Número do documento"
-              },
-              issuer: {
-                id: "form-checkout__issuer",
-                placeholder: "Banco emissor"
-              }
-            },
-            callbacks: {
-              onFormMounted: (error: any) => {
-                if (error) {
-                  console.error('Erro ao montar formulário:', error);
-                } else {
-                  console.log('Formulário de cartão montado com sucesso');
-                }
-              },
-              onSubmit: (event: any) => {
-                event.preventDefault();
-              },
-              onFetching: (resource: any) => {
-                console.log('Carregando...', resource);
-              }
-            }
-          });
-
-          console.log('Card form criado:', cardForm);
-        } catch (error) {
-          console.error('Erro ao inicializar formulário de cartão:', error);
-        }
-      };
-
-      // Pequeno delay para garantir que o DOM esteja pronto
-      setTimeout(initializeCardForm, 100);
-    }
-  }, [mercadoPago, step, paymentData.method, total]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -183,34 +119,6 @@ const Pagamento = () => {
     }
   }, [isAuthenticated, items.length, navigate]);
 
-  // Carregar endereço salvo quando usuário estiver autenticado
-  useEffect(() => {
-    if (user) {
-      loadSavedAddress();
-    }
-  }, [user]);
-
-  const loadSavedAddress = () => {
-    if (!user) return;
-    
-    try {
-      const savedAddress = localStorage.getItem(`address-${user.id}`);
-      if (savedAddress) {
-        const addressData = JSON.parse(savedAddress);
-        setShippingData(prev => ({
-          ...prev,
-          address: addressData.address || '',
-          zipCode: addressData.zipCode || '',
-          neighborhood: addressData.neighborhood || '',
-          city: addressData.city || '',
-          state: addressData.state || ''
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading address:', error);
-    }
-  };
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -219,16 +127,14 @@ const Pagamento = () => {
   };
 
   const handleZipCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ''); // Remove caracteres não numéricos
+    let value = e.target.value.replace(/\D/g, '');
     
-    // Aplica máscara CEP
     if (value.length > 5) {
       value = value.replace(/(\d{5})(\d)/, '$1-$2');
     }
     
     setShippingData(prev => ({ ...prev, zipCode: value }));
     
-    // Busca endereço quando CEP tem 8 dígitos
     if (value.replace(/\D/g, '').length === 8) {
       try {
         const cep = value.replace(/\D/g, '');
@@ -250,132 +156,84 @@ const Pagamento = () => {
     }
   };
 
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+    setCardData(prev => ({ ...prev, cardNumber: value }));
+  };
+
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+      value = value.replace(/(\d{2})(\d)/, '$1/$2');
+    }
+    setCardData(prev => ({ ...prev, expiryDate: value }));
+  };
+
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar campos obrigatórios
+    if (!shippingData.fullName || !shippingData.email || !shippingData.zipCode || 
+        !shippingData.address || !shippingData.number || !shippingData.city) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setStep('payment');
   };
 
-  const detectCardBrand = (cardNumber: string) => {
-    const cleanNumber = cardNumber.replace(/\D/g, '');
-    if (cleanNumber.startsWith('4')) return 'visa';
-    if (cleanNumber.startsWith('5') || cleanNumber.startsWith('2')) return 'master';
-    if (cleanNumber.startsWith('3')) return 'amex';
-    if (cleanNumber.startsWith('6')) return 'elo';
-    return 'visa'; // default
-  };
-
-  const createMercadoPagoPayment = async (orderId?: string) => {
+  const handleCardPayment = async () => {
     try {
-      if (paymentData.method === 'pix') {
-        // PIX payment
-        const { data, error } = await supabase.functions.invoke('process-payment', {
-          body: {
-            transaction_amount: total,
-            description: `Pedido Atacado Canoa - ${items.length} item(s)`,
-            payment_method_id: 'pix',
-            user_id: user?.id,
-            order_id: orderId,
-            payer: {
-              email: shippingData.email,
-              first_name: shippingData.fullName.split(' ')[0],
-              last_name: shippingData.fullName.split(' ').slice(1).join(' '),
-              identification: {
-                type: 'CPF',
-                number: '12345678901' // Em produção, coletar CPF real
-              }
-            },
-          },
-        });
-
-        if (error) throw error;
-        return data;
-      } else {
-        // Credit card payment usando MercadoPago SDK
-        if (!mercadoPago) {
-          throw new Error('MercadoPago SDK não carregado');
-        }
-
-        // Submeter o formulário do MercadoPago para processar
-        const form = document.getElementById('card-form') as HTMLFormElement;
-        if (!form) {
-          throw new Error('Formulário de cartão não encontrado');
-        }
-
-        // Simular submit do formulário para capturar dados
-        const formEvent = new Event('submit', { cancelable: true });
-        form.dispatchEvent(formEvent);
-
-        // Por enquanto, vamos usar dados de teste diretamente
-        const testCardData = {
-          card_number: '5031433215406351',
-          security_code: '123',
-          expiration_month: '11',
-          expiration_year: '2030',
-          cardholder: {
-            name: 'APRO',
-            identification: {
-              type: 'CPF',
-              number: '11144477735'
-            }
-          }
-        };
-
-        // Criar token via nossa edge function
-        const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
-          body: testCardData
-        });
-
-        if (tokenError) throw tokenError;
-
-        // Processar pagamento com o token
-        const { data, error } = await supabase.functions.invoke('process-payment', {
-          body: {
-            transaction_amount: total,
-            description: `Pedido Atacado Canoa - ${items.length} item(s)`,
-            payment_method_id: tokenData.payment_method_id,
-            token: tokenData.id,
-            installments: paymentData.installments || 1,
-            user_id: user?.id,
-            order_id: orderId,
-            payer: {
-              email: shippingData.email,
-              first_name: shippingData.fullName.split(' ')[0],
-              last_name: shippingData.fullName.split(' ').slice(1).join(' '),
-              identification: {
-                type: 'CPF',
-                number: '11144477735'
-              },
-            },
-          },
-        });
-
-        if (error) throw error;
-        return data;
+      setIsProcessing(true);
+      console.log('Iniciando pagamento com cartão');
+      
+      // Validar dados do cartão
+      if (!cardData.cardNumber || !cardData.cardholderName || !cardData.expiryDate || !cardData.cvv) {
+        throw new Error('Preencha todos os campos do cartão');
       }
-    } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
-      throw error;
-    }
-  };
 
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+      // Criar token do cartão via edge function
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
+        body: {
+          card_number: cardData.cardNumber.replace(/\s/g, ''),
+          cardholder: {
+            name: cardData.cardholderName,
+            identification: {
+              type: cardData.identificationType || 'CPF',
+              number: cardData.identificationNumber || '12345678901'
+            }
+          },
+          expiration_month: parseInt(cardData.expiryDate.split('/')[0]),
+          expiration_year: parseInt('20' + cardData.expiryDate.split('/')[1]),
+          security_code: cardData.cvv
+        }
+      });
 
-    try {
-      // Criar pedido no banco de dados primeiro
-      const orderInsert = {
-        user_id: user?.id || '',
+      if (tokenError || !tokenData.id) {
+        console.error('Erro ao criar token:', tokenError);
+        throw new Error('Erro ao processar dados do cartão');
+      }
+
+      console.log('Token criado:', tokenData.id);
+
+      // Criar pedido primeiro
+      const orderData = {
+        user_id: user?.id,
+        items: items as any,
         total_amount: total,
-        status: 'pending',
-        payment_method: paymentData.method === 'pix' ? 'pix' : 'credit_card',
         shipping_data: shippingData as any,
-        items: items as any
+        payment_method: 'CARD',
+        status: 'pending'
       };
 
-      const { data: orderData, error: orderError } = await supabase
+      const { data: order, error: orderError } = await supabase
         .from('orders')
-        .insert(orderInsert)
+        .insert(orderData)
         .select()
         .single();
 
@@ -384,135 +242,235 @@ const Pagamento = () => {
         throw new Error('Erro ao criar pedido');
       }
 
-      // Criar pagamento no Mercado Pago com o ID do pedido
-      const paymentResponse = await createMercadoPagoPayment(orderData.id);
-      
-      if (paymentResponse.status === 'approved' || paymentResponse.status === 'pending') {
-        setPaymentId(paymentResponse.id);
-        
-        // Para PIX, salvar dados do QR Code
-        if (paymentData.method === 'pix' && paymentResponse.pix_qr_code) {
-          setPixData({
-            qr_code: paymentResponse.pix_qr_code,
-            qr_code_base64: paymentResponse.pix_qr_code_base64
-          });
-        }
-        
-        // Atualizar pedido com ID do pagamento
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            payment_id: paymentResponse.id,
-            status: paymentResponse.status === 'approved' ? 'processing' : 'pending'
-          })
-          .eq('id', orderData.id);
+      // Processar pagamento
+      const paymentRequestData = {
+        transaction_amount: total,
+        description: `Pedido ${order.id}`,
+        payment_method_id: 'visa',
+        token: tokenData.id,
+        installments: paymentData.installments || 1,
+        payer: {
+          email: user?.email || '',
+          first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
+          last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          identification: {
+            type: cardData.identificationType || 'CPF',
+            number: cardData.identificationNumber || '12345678901',
+          },
+        },
+        user_id: user?.id,
+        order_id: order.id,
+      };
 
-        if (updateError) {
-          console.error('Erro ao atualizar pedido:', updateError);
-        }
+      const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
+        body: paymentRequestData
+      });
 
-        // Limpar carrinho
-        clearCart();
-        setStep('success');
-
-        toast({
-          title: 'Pedido realizado!',
-          description: paymentData.method === 'pix' 
-            ? 'Pagamento PIX criado. Complete o pagamento para confirmar seu pedido.'
-            : 'Pagamento processado com sucesso!',
-        });
-      } else {
-        throw new Error('Falha no processamento do pagamento');
+      if (paymentError) {
+        console.error('Erro no pagamento:', paymentError);
+        throw new Error('Erro ao processar pagamento');
       }
-    } catch (error: any) {
+
+      console.log('Pagamento processado:', paymentResult);
+      
+      // Limpar carrinho
+      clearCart();
+      
+      if (paymentResult.status === 'approved') {
+        toast({
+          title: "Pagamento aprovado!",
+          description: "Seu pedido foi processado com sucesso.",
+        });
+        navigate('/status-pagamento', { state: { paymentData: paymentResult, success: true } });
+      } else {
+        toast({
+          title: "Pagamento em processamento",
+          description: "Aguarde a confirmação do pagamento.",
+          variant: "default",
+        });
+        navigate('/status-pagamento', { state: { paymentData: paymentResult, success: false } });
+      }
+    } catch (error) {
+      console.error('Erro no pagamento:', error);
       toast({
-        title: 'Erro no pagamento',
-        description: error.message || 'Erro ao processar pagamento. Tente novamente.',
-        variant: 'destructive',
+        title: "Erro no pagamento",
+        description: error.message || "Não foi possível processar o pagamento. Tente novamente.",
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
   };
 
-  if (step === 'success') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-2xl w-full mx-4">
-          <CardContent className="p-8">
-            <div className="text-center mb-6">
-              <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-foreground mb-4">
-                Pedido Realizado!
-              </h1>
-              <p className="text-muted-foreground mb-4">
-                {paymentData.method === 'pix' 
-                  ? 'Escaneie o QR Code PIX abaixo para finalizar o pagamento:'
-                  : 'Seu pagamento foi processado com sucesso!'}
-              </p>
-              {paymentId && (
-                <p className="text-sm text-muted-foreground mb-4">
-                  ID do Pagamento: {paymentId}
-                </p>
-              )}
-            </div>
+  const handlePixPayment = async () => {
+    try {
+      setIsProcessing(true);
+      console.log('Iniciando pagamento PIX');
+      
+      // Criar pedido primeiro
+      const orderData = {
+        user_id: user?.id,
+        items: items as any,
+        total_amount: total,
+        shipping_data: shippingData as any,
+        payment_method: 'PIX',
+        status: 'pending'
+      };
 
-            {/* PIX QR Code */}
-            {paymentData.method === 'pix' && pixData && (
-              <div className="border rounded-lg p-6 mb-6 bg-card">
-                <div className="text-center space-y-4">
-                  <h3 className="font-semibold text-lg">Pagamento PIX</h3>
-                  
-                  {pixData.qr_code_base64 && (
-                    <div className="flex justify-center">
-                      <img 
-                        src={`data:image/png;base64,${pixData.qr_code_base64}`}
-                        alt="QR Code PIX"
-                        className="w-64 h-64 border rounded"
-                      />
-                    </div>
-                  )}
-                  
-                  <div>
-                    <Label className="text-sm font-medium">Código PIX (Copiar e Colar):</Label>
-                    <div className="mt-2 p-3 bg-muted rounded border flex items-center gap-2">
-                      <Input 
-                        value={pixData.qr_code || ''} 
-                        readOnly 
-                        className="font-mono text-xs"
-                        onClick={(e) => e.currentTarget.select()}
-                      />
-                      <Button 
-                        size="sm" 
-                        onClick={() => {
-                          navigator.clipboard.writeText(pixData.qr_code || '');
-                          toast({ title: 'Código PIX copiado!' });
-                        }}
-                      >
-                        Copiar
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>• Abra o app do seu banco</p>
-                    <p>• Escaneie o QR Code ou cole o código PIX</p>
-                    <p>• Confirme o pagamento de {formatPrice(total)}</p>
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert(orderData)
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error('Erro ao criar pedido:', orderError);
+        throw new Error('Erro ao criar pedido');
+      }
+
+      const paymentRequestData = {
+        transaction_amount: total,
+        description: `Pedido ${order.id}`,
+        payment_method_id: 'pix',
+        payer: {
+          email: user?.email || '',
+          first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
+          last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          identification: {
+            type: 'CPF',
+            number: '12345678901', // Em produção, coletar do usuário
+          },
+        },
+        user_id: user?.id,
+        order_id: order.id,
+      };
+
+      const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
+        body: paymentRequestData
+      });
+
+      if (paymentError) {
+        console.error('Erro no pagamento PIX:', paymentError);
+        throw new Error('Erro ao processar pagamento PIX');
+      }
+
+      console.log('PIX criado:', paymentResult);
+      
+      if (paymentResult.pix_qr_code) {
+        setPixData({
+          qrCode: paymentResult.pix_qr_code,
+          qrCodeBase64: paymentResult.pix_qr_code_base64,
+          paymentId: paymentResult.id
+        });
+        
+        // Limpar carrinho
+        clearCart();
+        setStep('pix-payment');
+      } else {
+        throw new Error('Erro ao gerar QR Code PIX');
+      }
+    } catch (error) {
+      console.error('Erro no PIX:', error);
+      toast({
+        title: "Erro no pagamento PIX",
+        description: error.message || "Não foi possível gerar o QR Code. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const copyPixCode = async () => {
+    if (pixData?.qrCode) {
+      try {
+        await navigator.clipboard.writeText(pixData.qrCode);
+        setCopied(true);
+        toast({
+          title: "Código PIX copiado!",
+          description: "Cole no seu app bancário para efetuar o pagamento.",
+        });
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error('Erro ao copiar:', error);
+      }
+    }
+  };
+
+  // Tela PIX Payment
+  if (step === 'pix-payment' && pixData) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl text-primary">Pagamento PIX</CardTitle>
+                <p className="text-muted-foreground">
+                  Escaneie o QR Code ou copie o código para finalizar o pagamento
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="text-center">
+                  <div className="bg-white p-4 rounded-lg inline-block border">
+                    <img 
+                      src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                      alt="QR Code PIX"
+                      className="w-64 h-64"
+                    />
                   </div>
                 </div>
-              </div>
-            )}
 
-            <div className="space-y-3">
-              <Button asChild className="w-full">
-                <Link to="/pedidos">Ver Meus Pedidos</Link>
-              </Button>
-              <Button variant="outline" asChild className="w-full">
-                <Link to="/">Continuar Comprando</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Código PIX (Copiar e Colar):</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={pixData.qrCode} 
+                      readOnly 
+                      className="font-mono text-sm"
+                    />
+                    <Button onClick={copyPixCode} size="sm" className="shrink-0">
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">Como pagar:</h4>
+                  <ol className="text-sm text-muted-foreground space-y-1">
+                    <li>1. Abra o app do seu banco</li>
+                    <li>2. Escaneie o QR Code ou cole o código PIX</li>
+                    <li>3. Confirme o pagamento de {formatPrice(total)}</li>
+                    <li>4. Aguarde a confirmação (pode levar alguns minutos)</li>
+                  </ol>
+                </div>
+
+                <div className="text-center space-y-3">
+                  <p className="text-lg font-semibold">Valor: {formatPrice(total)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    ID do Pagamento: {pixData.paymentId}
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => navigate('/pedidos')}
+                  >
+                    Ver Meus Pedidos
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={() => navigate('/')}
+                  >
+                    Continuar Comprando
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -523,20 +481,16 @@ const Pagamento = () => {
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild>
-              <Link to="/carrinho" className="flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Voltar ao Carrinho
-              </Link>
+            <Button variant="ghost" onClick={() => navigate('/carrinho')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar ao Carrinho
             </Button>
-            <h1 className="font-display text-2xl font-bold text-primary">
-              Finalizar Compra
-            </h1>
+            <h1 className="text-2xl font-bold text-primary">Finalizar Compra</h1>
           </div>
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Formulários */}
           <div className="lg:col-span-2 space-y-6">
@@ -580,34 +534,32 @@ const Pagamento = () => {
                           id="phone"
                           value={shippingData.phone}
                           onChange={(e) => setShippingData(prev => ({ ...prev, phone: e.target.value }))}
-                          placeholder="(75) 99999-9999"
                           required
                         />
                       </div>
-                       <div className="space-y-2">
-                         <Label htmlFor="zipCode">CEP *</Label>
-                         <Input
-                           id="zipCode"
-                           value={shippingData.zipCode}
-                           onChange={handleZipCodeChange}
-                           placeholder="44380-000"
-                           maxLength={9}
-                           required
-                         />
-                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="zipCode">CEP *</Label>
+                        <Input
+                          id="zipCode"
+                          value={shippingData.zipCode}
+                          onChange={handleZipCodeChange}
+                          placeholder="00000-000"
+                          maxLength={9}
+                          required
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="address">Endereço *</Label>
-                      <Input
-                        id="address"
-                        value={shippingData.address}
-                        onChange={(e) => setShippingData(prev => ({ ...prev, address: e.target.value }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+                      <div className="col-span-2 md:col-span-3 space-y-2">
+                        <Label htmlFor="address">Endereço *</Label>
+                        <Input
+                          id="address"
+                          value={shippingData.address}
+                          onChange={(e) => setShippingData(prev => ({ ...prev, address: e.target.value }))}
+                          required
+                        />
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="number">Número *</Label>
                         <Input
@@ -617,14 +569,18 @@ const Pagamento = () => {
                           required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="complement">Complemento</Label>
-                        <Input
-                          id="complement"
-                          value={shippingData.complement}
-                          onChange={(e) => setShippingData(prev => ({ ...prev, complement: e.target.value }))}
-                        />
-                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="complement">Complemento</Label>
+                      <Input
+                        id="complement"
+                        value={shippingData.complement}
+                        onChange={(e) => setShippingData(prev => ({ ...prev, complement: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="neighborhood">Bairro *</Label>
                         <Input
@@ -643,25 +599,16 @@ const Pagamento = () => {
                           required
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="state">Estado *</Label>
-                      <Select 
-                        value={shippingData.state} 
-                        onValueChange={(value) => setShippingData(prev => ({ ...prev, state: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="BA">Bahia</SelectItem>
-                          <SelectItem value="SP">São Paulo</SelectItem>
-                          <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                          <SelectItem value="MG">Minas Gerais</SelectItem>
-                          {/* Adicionar outros estados */}
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-2">
+                        <Label htmlFor="state">Estado *</Label>
+                        <Input
+                          id="state"
+                          value={shippingData.state}
+                          onChange={(e) => setShippingData(prev => ({ ...prev, state: e.target.value }))}
+                          maxLength={2}
+                          required
+                        />
+                      </div>
                     </div>
 
                     <Button type="submit" className="w-full">
@@ -672,7 +619,7 @@ const Pagamento = () => {
               </Card>
             )}
 
-            {/* Dados de Pagamento */}
+            {/* Forma de Pagamento */}
             {step === 'payment' && (
               <Card>
                 <CardHeader>
@@ -681,138 +628,149 @@ const Pagamento = () => {
                     Forma de Pagamento
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <form onSubmit={handlePaymentSubmit} className="space-y-6">
-                    {/* Método de Pagamento */}
-                    <div className="space-y-4">
-                      <Label>Escolha a forma de pagamento</Label>
+                <CardContent className="space-y-6">
+                  {/* Seleção do método */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div 
+                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                        paymentData.method === 'pix' ? 'border-primary bg-primary/5' : 'border-muted'
+                      }`}
+                      onClick={() => setPaymentData(prev => ({ ...prev, method: 'pix' }))}
+                    >
+                      <div className="flex items-center gap-3">
+                        <QrCode className="h-8 w-8 text-primary" />
+                        <div>
+                          <h3 className="font-semibold">PIX</h3>
+                          <p className="text-sm text-muted-foreground">Pagamento instantâneo</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div 
+                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                        paymentData.method === 'credit' ? 'border-primary bg-primary/5' : 'border-muted'
+                      }`}
+                      onClick={() => setPaymentData(prev => ({ ...prev, method: 'credit' }))}
+                    >
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-8 w-8 text-primary" />
+                        <div>
+                          <h3 className="font-semibold">Cartão de Crédito</h3>
+                          <p className="text-sm text-muted-foreground">Parcelado em até 12x</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Formulário do cartão */}
+                  {paymentData.method === 'credit' && (
+                    <div className="space-y-4 border-t pt-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Card 
-                          className={`cursor-pointer transition-all ${
-                            paymentData.method === 'pix' ? 'ring-2 ring-primary' : ''
-                          }`}
-                          onClick={() => setPaymentData(prev => ({ ...prev, method: 'pix' }))}
-                        >
-                          <CardContent className="p-4 text-center">
-                            <Smartphone className="h-8 w-8 mx-auto mb-2 text-primary" />
-                            <div className="font-medium">PIX</div>
-                            <div className="text-sm text-muted-foreground">
-                              Pagamento instantâneo
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card 
-                          className={`cursor-pointer transition-all ${
-                            paymentData.method === 'credit' ? 'ring-2 ring-primary' : ''
-                          }`}
-                          onClick={() => setPaymentData(prev => ({ ...prev, method: 'credit' }))}
-                        >
-                          <CardContent className="p-4 text-center">
-                            <CreditCard className="h-8 w-8 mx-auto mb-2 text-primary" />
-                            <div className="font-medium">Cartão de Crédito</div>
-                            <div className="text-sm text-muted-foreground">
-                              Em até 12x sem juros
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-
-                    {/* Formulário oficial do MercadoPago para Cartão */}
-                    {paymentData.method === 'credit' && (
-                      <div className="space-y-4">
-                        <div className="p-4 border rounded-lg bg-muted/30">
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Use os dados de teste abaixo:
-                          </p>
-                          <div className="text-sm space-y-1">
-                            <p><strong>Cartão:</strong> 5031 4332 1540 6351</p>
-                            <p><strong>Nome:</strong> APRO</p>
-                            <p><strong>Validade:</strong> 11/30</p>
-                            <p><strong>CVV:</strong> 123</p>
-                            <p><strong>CPF:</strong> 11144477735</p>
-                          </div>
+                        <div className="md:col-span-2 space-y-2">
+                          <Label htmlFor="cardNumber">Número do Cartão *</Label>
+                          <Input
+                            id="cardNumber"
+                            value={cardData.cardNumber}
+                            onChange={handleCardNumberChange}
+                            placeholder="0000 0000 0000 0000"
+                            maxLength={19}
+                            required
+                          />
                         </div>
-                        
-                        {/* Container para o formulário do MercadoPago */}
-                        <div id="card-form" className="space-y-4">
-                          <div className="grid grid-cols-1 gap-4">
-                            <div className="space-y-2">
-                              <Label>Número do Cartão</Label>
-                              <div id="form-checkout__cardNumber" className="mp-form-control"></div>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label>Nome do Titular</Label>
-                              <div id="form-checkout__cardholderName" className="mp-form-control"></div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Vencimento</Label>
-                                <div id="form-checkout__expirationDate" className="mp-form-control"></div>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>CVV</Label>
-                                <div id="form-checkout__securityCode" className="mp-form-control"></div>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label>Email</Label>
-                              <div id="form-checkout__cardholderEmail" className="mp-form-control"></div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Tipo de Documento</Label>
-                                <div id="form-checkout__identificationType" className="mp-form-control"></div>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Número do Documento</Label>
-                                <div id="form-checkout__identificationNumber" className="mp-form-control"></div>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label>Banco Emissor</Label>
-                              <div id="form-checkout__issuer" className="mp-form-control"></div>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label>Parcelas</Label>
-                              <div id="form-checkout__installments" className="mp-form-control"></div>
-                            </div>
-                          </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cardholderName">Nome do Titular *</Label>
+                          <Input
+                            id="cardholderName"
+                            value={cardData.cardholderName}
+                            onChange={(e) => setCardData(prev => ({ ...prev, cardholderName: e.target.value.toUpperCase() }))}
+                            placeholder="NOME COMO NO CARTÃO"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="identificationNumber">CPF *</Label>
+                          <Input
+                            id="identificationNumber"
+                            value={cardData.identificationNumber}
+                            onChange={(e) => setCardData(prev => ({ ...prev, identificationNumber: e.target.value }))}
+                            placeholder="000.000.000-00"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="expiryDate">Validade *</Label>
+                          <Input
+                            id="expiryDate"
+                            value={cardData.expiryDate}
+                            onChange={handleExpiryChange}
+                            placeholder="MM/AA"
+                            maxLength={5}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cvv">CVV *</Label>
+                          <Input
+                            id="cvv"
+                            value={cardData.cvv}
+                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value }))}
+                            placeholder="123"
+                            maxLength={4}
+                            required
+                          />
                         </div>
                       </div>
-                    )}
 
-                    <div className="flex gap-4">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => setStep('shipping')}
-                        className="flex-1"
-                      >
-                        Voltar
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={isLoading}
-                        className="flex-1"
-                      >
-                        {isLoading ? 'Processando...' : 'Finalizar Pedido'}
-                      </Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="installments">Parcelas</Label>
+                        <Select
+                          value={paymentData.installments?.toString()}
+                          onValueChange={(value) => setPaymentData(prev => ({ ...prev, installments: parseInt(value) }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione as parcelas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1x de {formatPrice(total)} (à vista)</SelectItem>
+                            <SelectItem value="2">2x de {formatPrice(total / 2)}</SelectItem>
+                            <SelectItem value="3">3x de {formatPrice(total / 3)}</SelectItem>
+                            <SelectItem value="6">6x de {formatPrice(total / 6)}</SelectItem>
+                            <SelectItem value="12">12x de {formatPrice(total / 12)}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </form>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setStep('shipping')}
+                      className="flex-1"
+                    >
+                      Voltar
+                    </Button>
+                    <Button 
+                      onClick={paymentData.method === 'pix' ? handlePixPayment : handleCardPayment}
+                      className="flex-1"
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processando...
+                        </>
+                      ) : (
+                        `Pagar ${formatPrice(total)}`
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
           </div>
 
-          {/* Resumo do Pedido */}
+          {/* Resumo do pedido */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -820,46 +778,30 @@ const Pagamento = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {items.map((item) => (
-                  <div key={`${item.id}-${item.size || 'no-size'}`} className="flex gap-3">
-                    <img 
-                      src={item.image} 
-                      alt={item.name}
-                      className="w-12 h-12 object-cover rounded"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{item.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.size && `Tam: ${item.size}`}
-                      </div>
-                      <div className="text-sm">
-                        {item.quantity}x {formatPrice(item.price)}
-                      </div>
+                  <div key={`${item.id}-${item.size}`} className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{item.name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Tamanho: {item.size} | Qty: {item.quantity}
+                      </p>
                     </div>
+                    <span className="font-medium">
+                      {formatPrice(item.price * item.quantity)}
+                    </span>
                   </div>
                 ))}
                 
-                <Separator />
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span>{formatPrice(total)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Frete</span>
-                    <span className="text-green-600">Grátis</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between font-bold">
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center font-bold text-lg">
                     <span>Total</span>
-                    <span>{formatPrice(total)}</span>
+                    <span className="text-primary">{formatPrice(total)}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };
