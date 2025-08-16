@@ -71,14 +71,48 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loadCartFromDatabase = () => {
-    // Por enquanto, usar localStorage para compatibilidade
-    loadCartFromLocalStorage();
+  const loadCartFromDatabase = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('carts')
+        .select('items')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading cart from database:', error);
+        return;
+      }
+
+      if (data?.items) {
+        setItems(data.items as CartItem[]);
+      }
+    } catch (error) {
+      console.error('Error loading cart from database:', error);
+      // Fallback to localStorage if database fails
+      loadCartFromLocalStorage();
+    }
   };
 
-  const saveCartToDatabase = () => {
-    // Por enquanto, usar localStorage para compatibilidade
-    saveCartToLocalStorage();
+  const saveCartToDatabase = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('carts')
+        .upsert({
+          user_id: user.id,
+          items: items
+        });
+
+      if (error) {
+        console.error('Error saving cart to database:', error);
+      }
+    } catch (error) {
+      console.error('Error saving cart to database:', error);
+    }
   };
 
   const addToCart = (product: any, size: string) => {
