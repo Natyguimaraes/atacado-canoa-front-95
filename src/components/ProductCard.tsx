@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 // NOVA LINHA
 import { toast } from 'sonner';
 
@@ -106,18 +106,25 @@ const ProductCard = ({
           </h3>
 
           {/* Seletor de Tamanho */}
-          <Select value={selectedSize || ''} onValueChange={setSelectedSize}>
-            <SelectTrigger className="w-full h-8 text-xs">
-              <SelectValue placeholder="Selecione o tamanho" />
-            </SelectTrigger>
-            <SelectContent>
+          <div className="space-y-2">
+            <p className="text-xs font-medium">Tamanho:</p>
+            <ToggleGroup 
+              type="single" 
+              value={selectedSize || ''} 
+              onValueChange={setSelectedSize}
+              className="justify-start flex-wrap gap-1"
+            >
               {sizes.map((size) => (
-                <SelectItem key={size} value={size}>
+                <ToggleGroupItem 
+                  key={size} 
+                  value={size}
+                  className="h-8 w-8 p-0 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
                   {size}
-                </SelectItem>
+                </ToggleGroupItem>
               ))}
-            </SelectContent>
-          </Select>
+            </ToggleGroup>
+          </div>
 
           {/* Price */}
           <div className="flex items-center gap-2">
