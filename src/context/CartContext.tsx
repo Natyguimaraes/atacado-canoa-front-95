@@ -20,7 +20,7 @@ interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: any, size: string) => void;
+  addToCart: (product: any, size: string) => boolean;
   removeItem: (id: string, size: string) => void;
   updateQuantity: (id: string, size: string, quantity: number) => void;
   clearCart: () => void;
@@ -124,6 +124,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const addToCart = (product: any, size: string) => {
+    // Verificar se o usuário está logado antes de adicionar ao carrinho
+    if (!isAuthenticated || !user) {
+      // Você pode usar toast aqui se quiser mostrar uma mensagem
+      console.warn('Usuário precisa estar logado para adicionar itens ao carrinho');
+      return false; // Retorna false para indicar que o item não foi adicionado
+    }
+
     console.log('Dados recebidos:', { product, size });
     setItems((currentItems) => {
       const existingItem = currentItems.find(
@@ -139,6 +146,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return [...currentItems, { ...product, size, quantity: 1 }];
       }
     });
+    return true; // Retorna true para indicar que o item foi adicionado com sucesso
   };
 
   const removeItem = (id: string, size: string) => {

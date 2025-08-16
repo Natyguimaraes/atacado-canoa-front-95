@@ -199,7 +199,10 @@ const Home = () => {
                 <ProductCard 
                   key={product.id} 
                   {...product} 
-                  onAddToCart={(size) => console.log('Add to cart:', product.id, size)} 
+                  onAddToCart={(size) => {
+                    // Redirecionar para a página de produtos para permitir login/compra
+                    console.log('Redirect to products for:', product.id, size);
+                  }}
                 />
               ))}
             </div>

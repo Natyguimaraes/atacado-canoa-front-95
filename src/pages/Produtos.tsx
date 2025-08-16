@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
@@ -13,6 +15,7 @@ import babyClothes from '@/assets/baby-clothes.jpg';
 import kidsClothes from '@/assets/kids-clothes.jpg';
 import adultClothes from '@/assets/adult-clothes.jpg';
 import { useCart } from '@/context/CartContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface Product {
   id: string;
@@ -38,6 +41,8 @@ const Produtos = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   const { addToCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
 
   const categoryImages = {
     bebe: babyClothes,
@@ -247,7 +252,23 @@ const Produtos = () => {
                     key={product.id} 
                     {...product} 
                     // NOVO: Passar o produto e a função de adicionar ao carrinho
-                    onAddToCart={(selectedSize: string) => addToCart(product, selectedSize)} 
+                    onAddToCart={(selectedSize: string) => {
+                      if (!isAuthenticated) {
+                        toast({
+                          title: 'Login necessário',
+                          description: 'Você precisa estar logado para adicionar itens ao carrinho.',
+                          variant: 'destructive',
+                        });
+                        return;
+                      }
+                      const success = addToCart(product, selectedSize);
+                      if (success) {
+                        toast({
+                          title: 'Produto adicionado!',
+                          description: `${product.name} foi adicionado ao seu carrinho.`,
+                        });
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -295,7 +316,23 @@ const Produtos = () => {
                               )}
                             </div>
                             {/* NOVO: Adicionar o onClick ao botão na visualização de lista */}
-                            <Button onClick={() => addToCart(product, product.sizes[0])}>Adicionar ao Carrinho</Button>
+                            <Button onClick={() => {
+                              if (!isAuthenticated) {
+                                toast({
+                                  title: 'Login necessário',
+                                  description: 'Você precisa estar logado para adicionar itens ao carrinho.',
+                                  variant: 'destructive',
+                                });
+                                return;
+                              }
+                              const success = addToCart(product, product.sizes[0]);
+                              if (success) {
+                                toast({
+                                  title: 'Produto adicionado!',
+                                  description: `${product.name} foi adicionado ao seu carrinho.`,
+                                });
+                              }
+                            }}>Adicionar ao Carrinho</Button>
                           </div>
                         </div>
                       </CardContent>

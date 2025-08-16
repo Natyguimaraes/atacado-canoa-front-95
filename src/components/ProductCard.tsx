@@ -52,9 +52,6 @@ const ProductCard = ({
       return;
     }
     onAddToCart(selectedSize);
-    toast.success('Produto adicionado!', {
-      description: `${name} foi adicionado ao seu carrinho.`,
-    });
   };
 
   return (
