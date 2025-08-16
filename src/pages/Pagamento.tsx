@@ -172,18 +172,27 @@ const Pagamento = () => {
       if (paymentResponse.status === 'approved' || paymentResponse.status === 'pending') {
         setPaymentId(paymentResponse.id);
         
-        // Log do sucesso do pagamento (remover inserção no banco por enquanto)
-        console.log('Pagamento processado:', {
-          user_id: user?.id,
+        // Criar pedido no banco de dados
+        const orderInsert = {
+          user_id: user?.id || '',
           total_amount: total,
-          status: paymentResponse.status === 'approved' ? 'confirmed' : 'pending',
+          status: paymentResponse.status === 'approved' ? 'processing' : 'pending',
           payment_id: paymentResponse.id,
-          payment_method: paymentData.method,
-          shipping_data: shippingData,
-          items: items
-        });
+          payment_method: paymentData.method === 'pix' ? 'pix' : 'credit_card',
+          shipping_data: shippingData as any,
+          items: items as any
+        };
 
-        // Remover verificação de erro por enquanto
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .insert(orderInsert)
+          .select()
+          .single();
+
+        if (orderError) {
+          console.error('Erro ao criar pedido:', orderError);
+          // Continuar mesmo com erro no banco para não bloquear o pagamento
+        }
 
         // Limpar carrinho
         clearCart();

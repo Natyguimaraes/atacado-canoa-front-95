@@ -90,8 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkUserRole = async (userId: string) => {
     try {
-      // Check if user is admin by email
-      if (user?.email === 'santosnath433@gmail.com') {
+      // Check if user is admin by email first
+      const { data: sessionData } = await supabase.auth.getUser();
+      if (sessionData.user?.email === 'admin@atacadocanoa.com') {
         setIsAdmin(true);
         return;
       }
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('role')
         .eq('user_id', userId)
         .eq('role', 'admin')
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error checking admin role:', error);

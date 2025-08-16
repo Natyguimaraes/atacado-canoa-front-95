@@ -14,10 +14,10 @@ const Header = () => {
   const { user, profile, isAuthenticated, isAdmin, logout } = useAuth();
 
   const navigation = [
-    { name: 'Início', href: '#home' },
-    { name: 'Produtos', href: '#produtos' },
-    { name: 'Categorias', href: '#categorias' },
-    { name: 'Contato', href: '#contato' },
+    { name: 'Início', href: '/' },
+    { name: 'Produtos', href: '/produtos' },
+    { name: 'Categorias', href: '/produtos' },
+    { name: 'Contato', href: '/#contato' },
   ];
 
   return (
@@ -44,22 +44,24 @@ const Header = () => {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             {navigation.map((item) => (
-              <a
+              <Link
                 key={item.name}
-                href={item.href}
+                to={item.href}
                 className="text-sm font-medium transition-colors hover:text-primary"
               >
                 {item.name}
-              </a>
+              </Link>
             ))}
           </nav>
 
           {/* Right Actions */}
           <div className="flex items-center space-x-2">
             {/* Search Button */}
-            <Button variant="ghost" size="icon" className="hidden sm:flex">
-              <Search className="h-4 w-4" />
-              <span className="sr-only">Buscar</span>
+            <Button variant="ghost" size="icon" className="hidden sm:flex" asChild>
+              <Link to="/produtos">
+                <Search className="h-4 w-4" />
+                <span className="sr-only">Buscar</span>
+              </Link>
             </Button>
 
             {/* Contact Button */}
@@ -159,14 +161,14 @@ const Header = () => {
         )}>
           <nav className="py-4 space-y-2">
             {navigation.map((item) => (
-              <a
+              <Link
                 key={item.name}
-                href={item.href}
+                to={item.href}
                 className="block px-4 py-2 text-sm font-medium transition-colors hover:text-primary hover:bg-muted rounded-md"
                 onClick={() => setIsMenuOpen(false)}
               >
                 {item.name}
-              </a>
+              </Link>
             ))}
             <div className="px-4 pt-2 border-t">
               <a 
