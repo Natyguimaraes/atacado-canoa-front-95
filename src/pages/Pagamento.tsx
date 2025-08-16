@@ -190,33 +190,49 @@ const Pagamento = () => {
   const handleCardPayment = async () => {
     try {
       setIsProcessing(true);
-      console.log('Iniciando pagamento com cartão');
+      console.log('Iniciando pagamento com cartão', { cardData });
       
       // Validar dados do cartão
       if (!cardData.cardNumber || !cardData.cardholderName || !cardData.expiryDate || !cardData.cvv) {
+        console.log('Erro na validação:', { cardData });
         throw new Error('Preencha todos os campos do cartão');
       }
 
+      // Validar formato da data
+      const [month, year] = cardData.expiryDate.split('/');
+      if (!month || !year || month.length !== 2 || year.length !== 2) {
+        throw new Error('Data de validade inválida. Use o formato MM/AA');
+      }
+
+      const tokenRequestData = {
+        card_number: cardData.cardNumber.replace(/\s/g, ''),
+        cardholder: {
+          name: cardData.cardholderName,
+          identification: {
+            type: cardData.identificationType || 'CPF',
+            number: cardData.identificationNumber || '12345678901'
+          }
+        },
+        expiration_month: parseInt(month),
+        expiration_year: parseInt('20' + year),
+        security_code: cardData.cvv
+      };
+
+      console.log('Dados para criar token:', tokenRequestData);
+
       // Criar token do cartão via edge function
       const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
-        body: {
-          card_number: cardData.cardNumber.replace(/\s/g, ''),
-          cardholder: {
-            name: cardData.cardholderName,
-            identification: {
-              type: cardData.identificationType || 'CPF',
-              number: cardData.identificationNumber || '12345678901'
-            }
-          },
-          expiration_month: parseInt(cardData.expiryDate.split('/')[0]),
-          expiration_year: parseInt('20' + cardData.expiryDate.split('/')[1]),
-          security_code: cardData.cvv
-        }
+        body: tokenRequestData
       });
 
-      if (tokenError || !tokenData.id) {
-        console.error('Erro ao criar token:', tokenError);
-        throw new Error('Erro ao processar dados do cartão');
+      if (tokenError) {
+        console.error('Erro completo ao criar token:', tokenError);
+        throw new Error(`Erro ao processar dados do cartão: ${JSON.stringify(tokenError)}`);
+      }
+      
+      if (!tokenData?.id) {
+        console.error('Token data recebido:', tokenData);
+        throw new Error('Token do cartão não foi criado corretamente');
       }
 
       console.log('Token criado:', tokenData.id);
@@ -246,7 +262,7 @@ const Pagamento = () => {
       const paymentRequestData = {
         transaction_amount: total,
         description: `Pedido ${order.id}`,
-        payment_method_id: 'visa',
+        payment_method_id: tokenData.payment_method_id,
         token: tokenData.id,
         installments: paymentData.installments || 1,
         payer: {
@@ -267,8 +283,8 @@ const Pagamento = () => {
       });
 
       if (paymentError) {
-        console.error('Erro no pagamento:', paymentError);
-        throw new Error('Erro ao processar pagamento');
+        console.error('Erro completo no pagamento:', paymentError);
+        throw new Error(`Erro ao processar pagamento: ${JSON.stringify(paymentError)}`);
       }
 
       console.log('Pagamento processado:', paymentResult);
@@ -350,8 +366,8 @@ const Pagamento = () => {
       });
 
       if (paymentError) {
-        console.error('Erro no pagamento PIX:', paymentError);
-        throw new Error('Erro ao processar pagamento PIX');
+        console.error('Erro completo no PIX:', paymentError);
+        throw new Error(`Erro ao processar pagamento PIX: ${JSON.stringify(paymentError)}`);
       }
 
       console.log('PIX criado:', paymentResult);

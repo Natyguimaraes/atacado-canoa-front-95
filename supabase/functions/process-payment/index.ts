@@ -34,11 +34,13 @@ serve(async (req) => {
   try {
     const paymentData: PaymentRequest = await req.json();
     
-    console.log('Processando pagamento:', {
+    console.log('Dados do pagamento recebidos:', {
       amount: paymentData.transaction_amount,
       method: paymentData.payment_method_id,
-      email: paymentData.payer.email,
-      user_id: paymentData.user_id
+      email: paymentData.payer?.email,
+      user_id: paymentData.user_id,
+      has_token: !!paymentData.token,
+      installments: paymentData.installments
     });
 
     const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
@@ -46,14 +48,24 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!accessToken) {
+      console.error('Access token não encontrado');
       throw new Error('Token do Mercado Pago não configurado');
     }
     
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Configurações Supabase não encontradas');
       throw new Error('Configurações do Supabase não encontradas');
     }
 
+    console.log('Tokens configurados corretamente');
+
     // Criar pagamento no Mercado Pago
+    console.log('Enviando dados para MP API:', {
+      method: paymentData.payment_method_id,
+      amount: paymentData.transaction_amount,
+      has_token: !!paymentData.token
+    });
+
     const mercadoPagoResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
@@ -64,10 +76,12 @@ serve(async (req) => {
       body: JSON.stringify(paymentData),
     });
 
+    console.log('MP Response status:', mercadoPagoResponse.status);
+
     if (!mercadoPagoResponse.ok) {
       const errorData = await mercadoPagoResponse.json();
-      console.error('Erro do Mercado Pago:', errorData);
-      throw new Error(`Erro do Mercado Pago: ${errorData.message || 'Erro desconhecido'}`);
+      console.error('Erro detalhado do Mercado Pago:', JSON.stringify(errorData, null, 2));
+      throw new Error(`Erro do Mercado Pago: ${JSON.stringify(errorData)}`);
     }
 
     const paymentResult = await mercadoPagoResponse.json();
