@@ -96,6 +96,81 @@ const Pagamento = () => {
     };
   }, []);
 
+  // Inicializar formulário de cartão do MercadoPago
+  useEffect(() => {
+    if (mercadoPago && step === 'payment' && paymentData.method === 'credit') {
+      const initializeCardForm = () => {
+        try {
+          const cardForm = mercadoPago.cardForm({
+            amount: total.toString(),
+            autoMount: true,
+            form: {
+              id: "card-form",
+              cardholderName: {
+                id: "form-checkout__cardholderName",
+                placeholder: "Nome do titular"
+              },
+              cardholderEmail: {
+                id: "form-checkout__cardholderEmail", 
+                placeholder: "E-mail"
+              },
+              cardNumber: {
+                id: "form-checkout__cardNumber",
+                placeholder: "Número do cartão"
+              },
+              expirationDate: {
+                id: "form-checkout__expirationDate",
+                placeholder: "MM/AAAA"
+              },
+              securityCode: {
+                id: "form-checkout__securityCode",
+                placeholder: "CVV"
+              },
+              installments: {
+                id: "form-checkout__installments",
+                placeholder: "Parcelas"
+              },
+              identificationType: {
+                id: "form-checkout__identificationType",
+                placeholder: "Tipo de documento"
+              },
+              identificationNumber: {
+                id: "form-checkout__identificationNumber",
+                placeholder: "Número do documento"
+              },
+              issuer: {
+                id: "form-checkout__issuer",
+                placeholder: "Banco emissor"
+              }
+            },
+            callbacks: {
+              onFormMounted: (error: any) => {
+                if (error) {
+                  console.error('Erro ao montar formulário:', error);
+                } else {
+                  console.log('Formulário de cartão montado com sucesso');
+                }
+              },
+              onSubmit: (event: any) => {
+                event.preventDefault();
+              },
+              onFetching: (resource: any) => {
+                console.log('Carregando...', resource);
+              }
+            }
+          });
+
+          console.log('Card form criado:', cardForm);
+        } catch (error) {
+          console.error('Erro ao inicializar formulário de cartão:', error);
+        }
+      };
+
+      // Pequeno delay para garantir que o DOM esteja pronto
+      setTimeout(initializeCardForm, 100);
+    }
+  }, [mercadoPago, step, paymentData.method, total]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
