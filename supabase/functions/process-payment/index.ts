@@ -5,26 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface PaymentRequest {
-  transaction_amount: number;
-  description: string;
-  payment_method_id: string;
-  payer: {
-    email: string;
-    first_name: string;
-    last_name: string;
-    identification: {
-      type: string;
-      number: string;
-    };
-  };
-  token?: string;
-  installments?: number;
-  additional_info?: any;
-  user_id?: string;
-  order_id?: string;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -32,41 +12,33 @@ serve(async (req) => {
   }
 
   try {
-    const paymentData: PaymentRequest = await req.json();
+    const paymentData = await req.json();
     
-    console.log('Dados do pagamento recebidos:', {
-      amount: paymentData.transaction_amount,
-      method: paymentData.payment_method_id,
-      email: paymentData.payer?.email,
-      user_id: paymentData.user_id,
-      has_token: !!paymentData.token,
-      installments: paymentData.installments
-    });
+    console.log('=== PROCESS PAYMENT ===');
+    console.log('Dados recebidos:', JSON.stringify({
+      ...paymentData,
+      token: paymentData.token ? '***TOKEN***' : undefined
+    }, null, 2));
 
     const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!accessToken) {
-      console.error('Access token não encontrado');
-      throw new Error('Token do Mercado Pago não configurado');
+      console.error('Access Token não configurado');
+      throw new Error('Access Token do Mercado Pago não configurado');
     }
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Configurações Supabase não encontradas');
+      console.error('Configurações Supabase faltando');
       throw new Error('Configurações do Supabase não encontradas');
     }
 
-    console.log('Tokens configurados corretamente');
+    console.log('Tokens configurados OK');
 
-    // Criar pagamento no Mercado Pago
-    console.log('Enviando dados para MP API:', {
-      method: paymentData.payment_method_id,
-      amount: paymentData.transaction_amount,
-      has_token: !!paymentData.token
-    });
-
-    const mercadoPagoResponse = await fetch('https://api.mercadopago.com/v1/payments', {
+    // Enviar para MP
+    console.log('Enviando para MP API...');
+    const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -76,109 +48,89 @@ serve(async (req) => {
       body: JSON.stringify(paymentData),
     });
 
-    console.log('MP Response status:', mercadoPagoResponse.status);
+    console.log('MP Response status:', response.status);
 
-    if (!mercadoPagoResponse.ok) {
-      const errorData = await mercadoPagoResponse.json();
-      console.error('Erro detalhado do Mercado Pago:', JSON.stringify(errorData, null, 2));
-      throw new Error(`Erro do Mercado Pago: ${JSON.stringify(errorData)}`);
+    const result = await response.json();
+    console.log('MP Response:', JSON.stringify(result, null, 2));
+
+    if (!response.ok) {
+      console.error('Erro do MP:', result);
+      throw new Error(`MP Error: ${JSON.stringify(result)}`);
     }
 
-    const paymentResult = await mercadoPagoResponse.json();
-    
-    console.log('Pagamento criado:', {
-      id: paymentResult.id,
-      status: paymentResult.status,
-      status_detail: paymentResult.status_detail
-    });
-
-    // Salvar pagamento no banco de dados
+    // Salvar no banco
+    console.log('Salvando no banco...');
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Determinar metadata baseado no tipo de pagamento
+    // Metadata para PIX ou cartão
     let metadata = null;
-    if (paymentData.payment_method_id === 'pix' && paymentResult.point_of_interaction) {
+    if (paymentData.payment_method_id === 'pix' && result.point_of_interaction) {
       metadata = {
-        qrCodeBase64: paymentResult.point_of_interaction.transaction_data.qr_code_base64,
-        qrCode: paymentResult.point_of_interaction.transaction_data.qr_code,
-        expirationDate: paymentResult.date_of_expiration
+        qrCodeBase64: result.point_of_interaction.transaction_data.qr_code_base64,
+        qrCode: result.point_of_interaction.transaction_data.qr_code,
+        expirationDate: result.date_of_expiration
       };
-    } else if (paymentData.payment_method_id !== 'pix' && paymentData.token) {
+    } else if (paymentData.token) {
       metadata = {
         cardId: paymentData.token
       };
     }
 
-    // Inserir pagamento na tabela payments
     const { data: paymentRecord, error: dbError } = await supabase
       .from('payments')
       .insert({
         user_id: paymentData.user_id,
         order_id: paymentData.order_id,
         method: paymentData.payment_method_id === 'pix' ? 'PIX' : 'CARD',
-        status: paymentResult.status?.toUpperCase() || 'PENDING',
+        status: result.status?.toUpperCase() || 'PENDING',
         amount: paymentData.transaction_amount,
         provider: 'MERCADO_PAGO',
-        external_id: paymentResult.id.toString(),
+        external_id: result.id.toString(),
         metadata: metadata,
-        paid_at: paymentResult.status === 'approved' ? new Date().toISOString() : null
+        paid_at: result.status === 'approved' ? new Date().toISOString() : null
       })
       .select()
       .single();
 
     if (dbError) {
-      console.error('Erro ao salvar pagamento no banco:', dbError);
-      // Não falhar a operação se o banco falhar, mas logar o erro
+      console.error('Erro no banco:', dbError);
     } else {
-      console.log('Pagamento salvo no banco:', paymentRecord?.id);
+      console.log('Salvo no banco:', paymentRecord?.id);
     }
 
-    // Criar resposta base
-    let response = {
-      id: paymentResult.id,
-      status: paymentResult.status,
-      status_detail: paymentResult.status_detail,
-      transaction_amount: paymentResult.transaction_amount,
-      payment_method_id: paymentResult.payment_method_id,
+    // Resposta
+    let responseData = {
+      id: result.id,
+      status: result.status,
+      status_detail: result.status_detail,
+      transaction_amount: result.transaction_amount,
+      payment_method_id: result.payment_method_id,
     };
 
-    // Para PIX, incluir informações do QR Code
-    if (paymentData.payment_method_id === 'pix' && paymentResult.point_of_interaction) {
-      response = {
-        ...response,
-        pix_qr_code: paymentResult.point_of_interaction.transaction_data.qr_code,
-        pix_qr_code_base64: paymentResult.point_of_interaction.transaction_data.qr_code_base64,
+    // PIX específico
+    if (paymentData.payment_method_id === 'pix' && result.point_of_interaction) {
+      responseData = {
+        ...responseData,
+        pix_qr_code: result.point_of_interaction.transaction_data.qr_code,
+        pix_qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
       };
-      
-      console.log('PIX criado com sucesso:', {
-        id: paymentResult.id,
-        status: paymentResult.status,
-        qr_code_length: paymentResult.point_of_interaction.transaction_data.qr_code?.length || 0
-      });
     }
 
-    // Para cartão de crédito, incluir informações de installments
-    if (paymentData.payment_method_id !== 'pix') {
-      console.log('Pagamento com cartão criado:', {
-        id: paymentResult.id,
-        status: paymentResult.status,
-        status_detail: paymentResult.status_detail,
-        installments: paymentData.installments || 1,
-        payment_method: paymentResult.payment_method_id
-      });
-    }
+    console.log('Retornando:', responseData);
 
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Erro ao processar pagamento:', error);
+    console.error('=== ERRO COMPLETO ===');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Erro interno do servidor',
+        error: error.message,
         details: error.toString()
       }),
       {

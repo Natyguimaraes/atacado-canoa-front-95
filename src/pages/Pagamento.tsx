@@ -193,9 +193,17 @@ const Pagamento = () => {
       console.log('Iniciando pagamento com cartão', { cardData });
       
       // Validar dados do cartão
-      if (!cardData.cardNumber || !cardData.cardholderName || !cardData.expiryDate || !cardData.cvv) {
-        console.log('Erro na validação:', { cardData });
-        throw new Error('Preencha todos os campos do cartão');
+      console.log('Validando dados do cartão:', { 
+        cardNumber: !!cardData.cardNumber, 
+        cardholderName: !!cardData.cardholderName, 
+        expiryDate: !!cardData.expiryDate, 
+        cvv: !!cardData.cvv,
+        identificationNumber: !!cardData.identificationNumber
+      });
+
+      if (!cardData.cardNumber || !cardData.cardholderName || !cardData.expiryDate || !cardData.cvv || !cardData.identificationNumber) {
+        console.log('Erro na validação - campos faltando:', { cardData });
+        throw new Error('Preencha todos os campos do cartão, incluindo o CPF');
       }
 
       // Validar formato da data
@@ -207,10 +215,10 @@ const Pagamento = () => {
       const tokenRequestData = {
         card_number: cardData.cardNumber.replace(/\s/g, ''),
         cardholder: {
-          name: cardData.cardholderName,
+          name: cardData.cardholderName.toUpperCase(),
           identification: {
             type: cardData.identificationType || 'CPF',
-            number: cardData.identificationNumber || '12345678901'
+            number: cardData.identificationNumber.replace(/\D/g, '')
           }
         },
         expiration_month: parseInt(month),
@@ -218,8 +226,13 @@ const Pagamento = () => {
         security_code: cardData.cvv
       };
 
-      console.log('Dados para criar token:', tokenRequestData);
+      console.log('Dados preparados para token:', {
+        ...tokenRequestData,
+        card_number: '**** **** **** ' + tokenRequestData.card_number.slice(-4),
+        security_code: '***'
+      });
 
+      console.log('Chamando create-card-token...');
       // Criar token do cartão via edge function
       const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
         body: tokenRequestData
@@ -237,7 +250,7 @@ const Pagamento = () => {
 
       console.log('Token criado:', tokenData.id);
 
-      // Criar pedido primeiro
+      console.log('Criando pedido...');
       const orderData = {
         user_id: user?.id,
         items: items as any,
@@ -277,6 +290,13 @@ const Pagamento = () => {
         user_id: user?.id,
         order_id: order.id,
       };
+
+      console.log('Processando pagamento com dados:', {
+        ...paymentRequestData,
+        token: '***TOKEN***'
+      });
+
+      console.log('Chamando process-payment...');
 
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
         body: paymentRequestData
