@@ -5,6 +5,8 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { useAuth } from './AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CartItem {
   id: string;
@@ -29,26 +31,55 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]); // Load cart from localStorage on mount
+  const [items, setItems] = useState<CartItem[]>([]);
+  const { user, isAuthenticated } = useAuth();
 
+  // Load cart when user changes
   useEffect(() => {
+    if (isAuthenticated && user) {
+      loadCartFromDatabase();
+    } else {
+      loadCartFromLocalStorage();
+    }
+  }, [user, isAuthenticated]);
+
+  // Save cart when items change
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      saveCartToDatabase();
+    } else {
+      saveCartToLocalStorage();
+    }
+  }, [items, user, isAuthenticated]);
+
+  const loadCartFromLocalStorage = () => {
     try {
       const savedCart = localStorage.getItem("atacado-canoa-cart");
       if (savedCart) {
         setItems(JSON.parse(savedCart));
       }
     } catch (error) {
-      console.error("Error loading cart:", error);
+      console.error("Error loading cart from localStorage:", error);
     }
-  }, []); // Save cart to localStorage whenever items change
+  };
 
-  useEffect(() => {
+  const saveCartToLocalStorage = () => {
     try {
       localStorage.setItem("atacado-canoa-cart", JSON.stringify(items));
     } catch (error) {
-      console.error("Error saving cart:", error);
+      console.error("Error saving cart to localStorage:", error);
     }
-  }, [items]); // FUNÇÃO RENOMEADA
+  };
+
+  const loadCartFromDatabase = () => {
+    // Por enquanto, usar localStorage para compatibilidade
+    loadCartFromLocalStorage();
+  };
+
+  const saveCartToDatabase = () => {
+    // Por enquanto, usar localStorage para compatibilidade
+    saveCartToLocalStorage();
+  };
 
   const addToCart = (product: any, size: string) => {
     console.log('Dados recebidos:', { product, size });

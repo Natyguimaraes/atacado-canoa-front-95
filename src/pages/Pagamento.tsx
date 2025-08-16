@@ -77,6 +77,34 @@ const Pagamento = () => {
     }
   }, [isAuthenticated, items.length, navigate]);
 
+  // Carregar endereço salvo quando usuário estiver autenticado
+  useEffect(() => {
+    if (user) {
+      loadSavedAddress();
+    }
+  }, [user]);
+
+  const loadSavedAddress = () => {
+    if (!user) return;
+    
+    try {
+      const savedAddress = localStorage.getItem(`address-${user.id}`);
+      if (savedAddress) {
+        const addressData = JSON.parse(savedAddress);
+        setShippingData(prev => ({
+          ...prev,
+          address: addressData.address || '',
+          zipCode: addressData.zipCode || '',
+          neighborhood: addressData.neighborhood || '',
+          city: addressData.city || '',
+          state: addressData.state || ''
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading address:', error);
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',

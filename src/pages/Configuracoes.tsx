@@ -11,8 +11,40 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 const Configuracoes = () => {
+
+  const handleZipCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    
+    if (value.length > 5) {
+      value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    }
+    
+    setZipCode(value);
+    
+    if (value.replace(/\D/g, '').length === 8) {
+      try {
+        const cep = value.replace(/\D/g, '');
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await response.json();
+        
+        if (data && !data.erro) {
+          setAddress(data.logradouro || '');
+          setNeighborhood(data.bairro || '');
+          setCity(data.localidade || '');
+          setState(data.uf || '');
+        }
+      } catch (error) {
+        console.error('Erro ao buscar CEP:', error);
+      }
+    }
+  };
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [zipCode, setZipCode] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   
@@ -25,7 +57,30 @@ const Configuracoes = () => {
       setPhone(profile.phone || '');
       setIsLoadingProfile(false);
     }
-  }, [profile]);
+    
+    // Carregar endereço salvo
+    if (user) {
+      loadSavedAddress();
+    }
+  }, [profile, user]);
+
+  const loadSavedAddress = () => {
+    if (!user) return;
+    
+    try {
+      const savedAddress = localStorage.getItem(`address-${user.id}`);
+      if (savedAddress) {
+        const addressData = JSON.parse(savedAddress);
+        setAddress(addressData.address || '');
+        setZipCode(addressData.zipCode || '');
+        setNeighborhood(addressData.neighborhood || '');
+        setCity(addressData.city || '');
+        setState(addressData.state || '');
+      }
+    } catch (error) {
+      console.error('Error loading address:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +89,8 @@ const Configuracoes = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase
+      // Atualizar perfil
+      const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
           user_id: user.id,
@@ -45,9 +101,19 @@ const Configuracoes = () => {
           onConflict: 'user_id'
         });
 
-      if (error) {
-        throw new Error(error.message);
+      if (profileError) {
+        throw new Error(profileError.message);
       }
+
+      // Por enquanto, salvar endereço no localStorage
+      const addressData = {
+        address,
+        zipCode,
+        neighborhood,
+        city,
+        state
+      };
+      localStorage.setItem(`address-${user.id}`, JSON.stringify(addressData));
 
       toast({
         title: 'Sucesso!',
@@ -141,6 +207,63 @@ const Configuracoes = () => {
                     placeholder="(75) 99999-9999"
                     className="pl-10"
                   />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Endereço de Entrega</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="zipCode">CEP</Label>
+                    <Input
+                      id="zipCode"
+                      value={zipCode}
+                      onChange={handleZipCodeChange}
+                      placeholder="44380-000"
+                      maxLength={9}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">Estado</Label>
+                    <Input
+                      id="state"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      placeholder="BA"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">Endereço</Label>
+                  <Input
+                    id="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Rua, número"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="neighborhood">Bairro</Label>
+                    <Input
+                      id="neighborhood"
+                      value={neighborhood}
+                      onChange={(e) => setNeighborhood(e.target.value)}
+                      placeholder="Nome do bairro"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input
+                      id="city"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="Nome da cidade"
+                    />
+                  </div>
                 </div>
               </div>
 
