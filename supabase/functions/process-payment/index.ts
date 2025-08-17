@@ -1,131 +1,92 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 serve(async (req) => {
+  // CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Content-Type': 'application/json',
+  };
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers });
   }
 
   try {
-    console.log('=== PROCESS PAYMENT START ===');
+    console.log('=== TESTE PROCESS PAYMENT ===');
     
-    const body = await req.text();
-    console.log('Raw body:', body);
-    
-    const paymentData = JSON.parse(body);
-    console.log('Parsed payment data:', {
-      amount: paymentData.transaction_amount,
-      method: paymentData.payment_method_id,
-      has_token: !!paymentData.token
+    const data = await req.json();
+    console.log('Payment data received:', {
+      amount: data.transaction_amount,
+      method: data.payment_method_id,
+      has_token: !!data.token
     });
 
+    // Verificar access token
     const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    console.log('Access token exists:', !!accessToken);
+    
     if (!accessToken) {
-      console.error('ERRO: Access Token não encontrado');
-      return new Response(JSON.stringify({ error: 'Access Token não configurado' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.log('Returning error: no access token');
+      return new Response(JSON.stringify({ 
+        error: 'Access token not configured' 
+      }), { status: 400, headers });
     }
 
-    console.log('Access Token OK');
-
-    const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
+    console.log('Calling MP payments API...');
+    
+    // Chamar Mercado Pago
+    const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'X-Idempotency-Key': crypto.randomUUID(),
       },
-      body: JSON.stringify(paymentData),
+      body: JSON.stringify(data),
     });
 
-    console.log('MP Payment Status:', mpResponse.status);
-    
-    const mpResult = await mpResponse.json();
-    console.log('MP Payment Result:', mpResult);
+    const result = await response.json();
+    console.log('MP payment response status:', response.status);
+    console.log('MP payment response:', result);
 
-    if (!mpResponse.ok) {
-      console.error('MP Payment Error:', mpResult);
-      return new Response(JSON.stringify({ error: 'MP Payment Error', details: mpResult }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!response.ok) {
+      console.log('MP payment error, returning 400');
+      return new Response(JSON.stringify({ 
+        error: 'Mercado Pago payment error', 
+        mp_error: result 
+      }), { status: 400, headers });
     }
 
-    // Salvar no banco simplificado
-    try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      
-      if (supabaseUrl && supabaseServiceKey) {
-        console.log('Salvando no banco...');
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-        let metadata = null;
-        if (paymentData.payment_method_id === 'pix' && mpResult.point_of_interaction) {
-          metadata = {
-            qrCodeBase64: mpResult.point_of_interaction.transaction_data.qr_code_base64,
-            qrCode: mpResult.point_of_interaction.transaction_data.qr_code,
-          };
-        } else if (paymentData.token) {
-          metadata = { cardId: paymentData.token };
-        }
-
-        await supabase.from('payments').insert({
-          user_id: paymentData.user_id,
-          order_id: paymentData.order_id,
-          method: paymentData.payment_method_id === 'pix' ? 'PIX' : 'CARD',
-          status: mpResult.status?.toUpperCase() || 'PENDING',
-          amount: paymentData.transaction_amount,
-          provider: 'MERCADO_PAGO',
-          external_id: mpResult.id.toString(),
-          metadata: metadata,
-          paid_at: mpResult.status === 'approved' ? new Date().toISOString() : null
-        });
-
-        console.log('Salvo no banco com sucesso');
-      }
-    } catch (dbError) {
-      console.error('Erro no banco (não crítico):', dbError);
-    }
-
-    // Resposta final
-    let result = {
-      id: mpResult.id,
-      status: mpResult.status,
-      status_detail: mpResult.status_detail,
-      transaction_amount: mpResult.transaction_amount,
-      payment_method_id: mpResult.payment_method_id,
+    // Resposta básica
+    let responseData = {
+      id: result.id,
+      status: result.status,
+      status_detail: result.status_detail,
+      transaction_amount: result.transaction_amount,
+      payment_method_id: result.payment_method_id,
     };
 
-    if (paymentData.payment_method_id === 'pix' && mpResult.point_of_interaction) {
-      result = {
-        ...result,
-        pix_qr_code: mpResult.point_of_interaction.transaction_data.qr_code,
-        pix_qr_code_base64: mpResult.point_of_interaction.transaction_data.qr_code_base64,
+    // Para PIX, adicionar QR code
+    if (data.payment_method_id === 'pix' && result.point_of_interaction) {
+      responseData = {
+        ...responseData,
+        pix_qr_code: result.point_of_interaction.transaction_data.qr_code,
+        pix_qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
       };
     }
 
-    console.log('Success! Returning payment result');
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.log('Success, returning payment result');
+    return new Response(JSON.stringify(responseData), { headers });
 
   } catch (error) {
-    console.error('ERRO GERAL:', error);
+    console.error('CATCH ERROR:', error.message);
+    console.error('ERROR STACK:', error.stack);
+    
     return new Response(JSON.stringify({ 
-      error: 'Internal error',
-      message: error.message 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      error: 'Internal server error',
+      message: error.message,
+      stack: error.stack
+    }), { status: 500, headers });
   }
 });
