@@ -42,11 +42,7 @@ serve(async (req) => {
 
     console.log('Calling MP API...');
     
-    // Chamar Mercado Pago com public_key no corpo da requisição
-    const finalPayload = {
-      ...payload,
-      public_key: publicKey
-    };
+    // Chamar Mercado Pago apenas com dados do cartão - public_key vai no header Authorization
 
     const response = await fetch('https://api.mercadopago.com/v1/card_tokens', {
       method: 'POST',

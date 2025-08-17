@@ -13,13 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== PROCESS PAYMENT v2 ===');
+    console.log('=== PROCESS PAYMENT v3 ===');
     
     const data = await req.json();
     console.log('Payment data received:', {
       amount: data.transaction_amount,
       method: data.payment_method_id,
-      has_token: !!data.token
+      has_token: !!data.token,
+      full_data: JSON.stringify(data, null, 2)
     });
 
     // Verificar access token

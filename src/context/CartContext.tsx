@@ -112,6 +112,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         .upsert({
           user_id: user.id,
           items: JSON.parse(JSON.stringify(items))
+        }, {
+          onConflict: 'user_id',
+          ignoreDuplicates: false
         });
 
       if (error) {
