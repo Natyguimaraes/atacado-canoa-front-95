@@ -51,9 +51,10 @@ serve(async (req) => {
     const response = await fetch('https://api.mercadopago.com/v1/card_tokens', {
       method: 'POST',
       headers: { 
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicKey}`
       },
-      body: JSON.stringify(finalPayload),
+      body: JSON.stringify(payload), // Apenas dados do cartão, sem public_key
     });
 
     const result = await response.json();

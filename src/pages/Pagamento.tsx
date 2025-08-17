@@ -472,9 +472,13 @@ const Pagamento = () => {
           description: "Escaneie o código ou copie para efetuar o pagamento.",
         });
         
-        // Limpar carrinho e mostrar PIX imediatamente, sem delay
-        clearCart();
+        // Mostrar PIX primeiro, depois limpar carrinho
         setStep('pix-payment');
+        
+        // Aguardar um pouco antes de limpar o carrinho para evitar bugs visuais
+        setTimeout(() => {
+          clearCart();
+        }, 1000);
       } else {
         console.error('Dados PIX incompletos:', paymentResult);
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
