@@ -414,7 +414,7 @@ const Pagamento = () => {
           last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
           identification: {
             type: 'CPF',
-            number: '12345678901', // Em produção, coletar do usuário
+            number: '11144477735', // CPF de teste válido do Mercado Pago
           },
         },
         user_id: user?.id,
