@@ -735,6 +735,32 @@ const Pagamento = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Debug button */}
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        console.log('Testing MP connection...');
+                        const result = await supabase.functions.invoke('debug-payment');
+                        console.log('Debug result:', result);
+                        toast({
+                          title: result.data?.success ? "✅ Conectado" : "❌ Erro",
+                          description: result.data?.message || result.data?.error || 'Teste concluído'
+                        });
+                      } catch (error) {
+                        console.error('Debug error:', error);
+                        toast({
+                          title: "Erro no teste",
+                          description: String(error),
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    🔧 Testar Conexão MP
+                  </Button>
+
                   {/* Seleção do método */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div 
