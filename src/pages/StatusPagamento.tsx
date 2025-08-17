@@ -22,7 +22,7 @@ export default function StatusPagamento() {
   const params = useParams();
   const paymentId = params.id as string;
 
-  const { data: paymentResult, isPending: isPendingPaymentResult } = useQuery({
+  const { data: paymentResult, isPending: isPendingPaymentResult, error } = useQuery({
     queryKey: ["payment", paymentId],
     queryFn: async () => {
       if (!paymentId) throw new Error("ID do pagamento não encontrado");
@@ -36,8 +36,16 @@ export default function StatusPagamento() {
       if (error) throw error;
       return { status: "success", data };
     },
-    refetchInterval: 10000, // 10 segundos
+    refetchInterval: 5000, // 5 segundos para atualizar mais frequentemente
     enabled: !!paymentId,
+    retry: (failureCount, error: any) => {
+      // Se o erro for "not found" e ainda não tentou muitas vezes, continue tentando
+      if (error?.message?.includes("No rows returned") && failureCount < 20) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const paymentData = useMemo(() => {
@@ -113,18 +121,23 @@ export default function StatusPagamento() {
     return isAfter(new Date(), new Date(expirationDate));
   };
 
-  if (isPendingPaymentResult) {
+  // Se ainda está carregando ou tentando buscar o pagamento, mostra loading
+  if (isPendingPaymentResult || (!paymentData && !error)) {
     return (
       <div className="container mx-auto max-w-2xl p-6">
         <div className="animate-pulse">
           <div className="mb-4 h-8 rounded bg-muted"></div>
           <div className="h-64 rounded bg-muted"></div>
         </div>
+        <div className="text-center mt-4">
+          <p className="text-muted-foreground">Aguardando informações do pagamento...</p>
+        </div>
       </div>
     );
   }
 
-  if (!paymentData) {
+  // Só mostra erro se realmente falhou após várias tentativas
+  if (error && !paymentData) {
     return (
       <div className="container mx-auto max-w-2xl p-6">
         <Card>
@@ -134,8 +147,13 @@ export default function StatusPagamento() {
               Pagamento não encontrado
             </h2>
             <p className="text-center text-muted-foreground">
-              Não foi possível encontrar informações sobre este pagamento.
+              Não foi possível encontrar informações sobre este pagamento após várias tentativas.
             </p>
+            <div className="mt-4">
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Tentar Novamente
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
