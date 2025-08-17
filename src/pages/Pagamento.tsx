@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { supabase } from '../integrations/supabase/client';
 import { CreditCard, QrCode, Copy, Check, Loader2, ArrowLeft } from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import { CartDebug } from '@/components/CartDebug';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -318,6 +319,15 @@ const Home = () => {
                   </div>
                 </div>
               </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Debug Section - Remove in production */}
+        <section className="py-8 bg-muted/20">
+          <div className="container mx-auto px-4">
+            <div className="flex justify-center">
+              <CartDebug />
             </div>
           </div>
         </section>
