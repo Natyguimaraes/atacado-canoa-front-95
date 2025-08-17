@@ -466,16 +466,17 @@ const Pagamento = () => {
           paymentId: paymentResult.id
         });
         
-        // Limpar carrinho
-        clearCart();
-        
         // Mostrar toast de sucesso
         toast({
           title: "QR Code PIX gerado!",
           description: "Escaneie o código ou copie para efetuar o pagamento.",
         });
         
-        setStep('pix-payment');
+        // Aguardar um pouco antes de limpar carrinho e mudar step
+        setTimeout(() => {
+          clearCart();
+          setStep('pix-payment');
+        }, 100);
       } else {
         console.error('Dados PIX incompletos:', paymentResult);
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
