@@ -405,7 +405,7 @@ const Pagamento = () => {
       }
 
       const paymentRequestData = {
-        transaction_amount: total,
+        transaction_amount: Math.round(total * 100), // Converter para centavos
         description: `Pedido ${order.id}`,
         payment_method_id: 'pix',
         payer: {
