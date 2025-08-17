@@ -239,8 +239,19 @@ const Pagamento = () => {
       });
 
       if (tokenError) {
-        console.error('Erro completo ao criar token:', tokenError);
-        throw new Error(`Erro ao processar dados do cartão: ${JSON.stringify(tokenError)}`);
+        console.error('Erro COMPLETO ao criar token:', tokenError);
+        console.error('Token error details:', JSON.stringify(tokenError, null, 2));
+        
+        // Extrair mensagem de erro mais específica
+        let errorMessage = 'Erro ao processar dados do cartão';
+        if (tokenError.message) {
+          errorMessage += `: ${tokenError.message}`;
+        }
+        if (tokenError.details) {
+          errorMessage += ` - ${JSON.stringify(tokenError.details)}`;
+        }
+        
+        throw new Error(errorMessage);
       }
       
       if (!tokenData?.id) {
@@ -303,8 +314,18 @@ const Pagamento = () => {
       });
 
       if (paymentError) {
-        console.error('Erro completo no pagamento:', paymentError);
-        throw new Error(`Erro ao processar pagamento: ${JSON.stringify(paymentError)}`);
+        console.error('Erro COMPLETO no pagamento:', paymentError);
+        console.error('Payment error details:', JSON.stringify(paymentError, null, 2));
+        
+        let errorMessage = 'Erro ao processar pagamento';
+        if (paymentError.message) {
+          errorMessage += `: ${paymentError.message}`;
+        }
+        if (paymentError.details) {
+          errorMessage += ` - ${JSON.stringify(paymentError.details)}`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       console.log('Pagamento processado:', paymentResult);
@@ -326,8 +347,11 @@ const Pagamento = () => {
         });
         navigate('/status-pagamento', { state: { paymentData: paymentResult, success: false } });
       }
-    } catch (error) {
-      console.error('Erro no pagamento:', error);
+    } catch (error: any) {
+      console.error('Erro FINAL no cartão:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error stack:', error.stack);
+      
       toast({
         title: "Erro no pagamento",
         description: error.message || "Não foi possível processar o pagamento. Tente novamente.",
@@ -386,8 +410,18 @@ const Pagamento = () => {
       });
 
       if (paymentError) {
-        console.error('Erro completo no PIX:', paymentError);
-        throw new Error(`Erro ao processar pagamento PIX: ${JSON.stringify(paymentError)}`);
+        console.error('Erro COMPLETO no PIX:', paymentError);
+        console.error('PIX error details:', JSON.stringify(paymentError, null, 2));
+        
+        let errorMessage = 'Erro ao processar pagamento PIX';
+        if (paymentError.message) {
+          errorMessage += `: ${paymentError.message}`;
+        }
+        if (paymentError.details) {
+          errorMessage += ` - ${JSON.stringify(paymentError.details)}`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       console.log('PIX criado:', paymentResult);
@@ -405,8 +439,11 @@ const Pagamento = () => {
       } else {
         throw new Error('Erro ao gerar QR Code PIX');
       }
-    } catch (error) {
-      console.error('Erro no PIX:', error);
+    } catch (error: any) {
+      console.error('Erro FINAL no PIX:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error stack:', error.stack);
+      
       toast({
         title: "Erro no pagamento PIX",
         description: error.message || "Não foi possível gerar o QR Code. Tente novamente.",
