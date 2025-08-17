@@ -187,23 +187,6 @@ const Pagamento = () => {
     setStep('payment');
   };
 
-  const testEdgeFunction = async () => {
-    try {
-      console.log('Testando edge function...');
-      const { data, error } = await supabase.functions.invoke('test-function', {
-        body: { test: 'hello world' }
-      });
-      
-      if (error) {
-        console.error('Erro no teste:', error);
-      } else {
-        console.log('Teste sucesso:', data);
-      }
-    } catch (error) {
-      console.error('Erro ao testar:', error);
-    }
-  };
-
   const handleCardPayment = async () => {
     try {
       setIsProcessing(true);
@@ -839,13 +822,6 @@ const Pagamento = () => {
                       className="flex-1"
                     >
                       Voltar
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={testEdgeFunction}
-                      className="flex-1"
-                    >
-                      Testar Edge Function
                     </Button>
                     <Button 
                       onClick={paymentData.method === 'pix' ? handlePixPayment : handleCardPayment}
