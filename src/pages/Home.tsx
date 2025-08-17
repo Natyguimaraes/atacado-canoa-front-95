@@ -6,12 +6,19 @@ import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import heroImage from '@/assets/hero-store.jpg';
 import babyClothes from '@/assets/baby-clothes.jpg';
 import kidsClothes from '@/assets/kids-clothes.jpg';
 import adultClothes from '@/assets/adult-clothes.jpg';
 
 const Home = () => {
+  const { addToCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+
   // Mock products data
   const featuredProducts = [
     {
@@ -200,8 +207,21 @@ const Home = () => {
                   key={product.id} 
                   {...product} 
                   onAddToCart={(size) => {
-                    // Redirecionar para a página de produtos para permitir login/compra
-                    console.log('Redirect to products for:', product.id, size);
+                    if (!isAuthenticated) {
+                      toast({
+                        title: 'Login necessário',
+                        description: 'Você precisa estar logado para adicionar itens ao carrinho.',
+                        variant: 'destructive',
+                      });
+                      return;
+                    }
+                    const success = addToCart(product, size);
+                    if (success) {
+                      toast({
+                        title: 'Produto adicionado!',
+                        description: `${product.name} foi adicionado ao seu carrinho.`,
+                      });
+                    }
                   }}
                 />
               ))}

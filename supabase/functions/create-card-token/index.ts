@@ -42,13 +42,18 @@ serve(async (req) => {
 
     console.log('Calling MP API...');
     
-    // Chamar Mercado Pago
-    const response = await fetch(`https://api.mercadopago.com/v1/card_tokens?public_key=${publicKey}`, {
+    // Chamar Mercado Pago com public_key no corpo da requisição
+    const finalPayload = {
+      ...payload,
+      public_key: publicKey
+    };
+
+    const response = await fetch('https://api.mercadopago.com/v1/card_tokens', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(finalPayload),
     });
 
     const result = await response.json();

@@ -300,7 +300,7 @@ const Pagamento = () => {
 
       // Processar pagamento
       const paymentRequestData = {
-        transaction_amount: total,
+        transaction_amount: Math.round(total * 100), // Converter para centavos
         description: `Pedido ${order.id}`,
         payment_method_id: tokenData.payment_method_id,
         token: tokenData.id,
@@ -311,7 +311,7 @@ const Pagamento = () => {
           last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
           identification: {
             type: cardData.identificationType || 'CPF',
-            number: cardData.identificationNumber || '12345678901',
+            number: cardData.identificationNumber.replace(/\D/g, '') || '11144477735',
           },
         },
         user_id: user?.id,
@@ -405,7 +405,7 @@ const Pagamento = () => {
       }
 
       const paymentRequestData = {
-        transaction_amount: total, // Manter valor normal, não em centavos
+        transaction_amount: Math.round(total * 100), // Converter para centavos para o Mercado Pago
         description: `Pedido ${order.id}`,
         payment_method_id: 'pix',
         payer: {
