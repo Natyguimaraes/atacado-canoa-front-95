@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { supabase } from '../integrations/supabase/client';
-import { CreditCard, QrCode, Copy, Check, Loader2, ArrowLeft } from 'lucide-react';
+import { CreditCard, QrCode, Copy, Check, Loader2, ArrowLeft, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -59,6 +59,8 @@ const Pagamento = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [mercadoPago, setMercadoPago] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [pixTimer, setPixTimer] = useState<number>(0);
+  const [pixExpired, setPixExpired] = useState(false);
 
   const [shippingData, setShippingData] = useState<ShippingData>({
     fullName: user?.user_metadata?.full_name || '',
@@ -88,6 +90,44 @@ const Pagamento = () => {
   });
 
   const [pixData, setPixData] = useState<PixData | null>(null);
+
+  // Timer do PIX - 10 minutos (600 segundos)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (step === 'pix-payment' && pixData && !pixExpired) {
+      // Iniciar timer de 10 minutos
+      setPixTimer(600); // 10 minutos em segundos
+      
+      interval = setInterval(() => {
+        setPixTimer((prev) => {
+          if (prev <= 1) {
+            setPixExpired(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [step, pixData, pixExpired]);
+
+  // Função para formatar o tempo restante
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  // Função para gerar novo QR Code PIX
+  const generateNewPixCode = async () => {
+    setPixExpired(false);
+    setPixData(null);
+    await handlePixPayment();
+  };
 
   // Inicializar MercadoPago SDK
   useEffect(() => {
@@ -474,6 +514,8 @@ const Pagamento = () => {
         
         // Mostrar PIX primeiro, depois limpar carrinho
         setStep('pix-payment');
+        setPixExpired(false);
+        setPixTimer(600); // 10 minutos
         
         // Aguardar um pouco antes de limpar o carrinho para evitar bugs visuais
         setTimeout(() => {
@@ -514,43 +556,123 @@ const Pagamento = () => {
     }
   };
 
-  // Tela PIX Payment
+  // Tela PIX Payment com timer e expiração
   if (step === 'pix-payment' && pixData) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
             <Card>
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl text-primary">Pagamento PIX</CardTitle>
-                <p className="text-muted-foreground">
-                  Escaneie o QR Code ou copie o código para finalizar o pagamento
-                </p>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-sm">💳</span>
+                  Pagamento PIX
+                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <p className="text-muted-foreground">
+                    Escaneie o código QR ou copie o código PIX para finalizar o pagamento.
+                  </p>
+                  {!pixExpired && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4" />
+                      <span className="font-mono font-bold text-orange-600">
+                        {formatTime(pixTimer)}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="text-center">
-                  <div className="bg-white p-4 rounded-lg inline-block border">
-                    <img 
-                      src={`data:image/png;base64,${pixData.qrCodeBase64}`}
-                      alt="QR Code PIX"
-                      className="w-64 h-64"
-                    />
-                  </div>
-                </div>
+                {!pixExpired ? (
+                  <>
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="bg-white p-4 rounded-lg">
+                        <img 
+                          src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                          alt="QR Code PIX" 
+                          className="w-64 h-64"
+                        />
+                      </div>
+                      
+                      <div className="w-full max-w-md space-y-3">
+                        <Label>Código PIX (Copiar e Colar):</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            value={pixData.qrCode}
+                            readOnly
+                            className="font-mono text-xs"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={copyPixCode}
+                            className="flex-shrink-0"
+                          >
+                            {copied ? (
+                              <>
+                                <Check className="mr-2 h-4 w-4" />
+                                Copiado!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copiar
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
 
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium">Código PIX (Copiar e Colar):</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      value={pixData.qrCode} 
-                      readOnly 
-                      className="font-mono text-sm"
-                    />
-                    <Button onClick={copyPixCode} size="sm" className="shrink-0">
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
+                      <div className="text-center space-y-2">
+                        <p className="text-lg font-semibold">
+                          Total: {formatPrice(total)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          O pagamento será processado automaticamente após a confirmação.
+                        </p>
+                        <div className="flex items-center justify-center gap-2 text-sm text-orange-600">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>Este código expira em {formatTime(pixTimer)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center space-y-4">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="bg-red-100 dark:bg-red-900/20 p-4 rounded-full">
+                        <Clock className="h-8 w-8 text-red-600" />
+                      </div>
+                      <h3 className="text-lg font-semibold">QR Code Expirado</h3>
+                      <p className="text-muted-foreground text-center max-w-md">
+                        O código PIX expirou após 10 minutos. Clique no botão abaixo para gerar um novo código.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <p className="text-lg font-semibold">
+                        Total: {formatPrice(total)}
+                      </p>
+                      <Button 
+                        onClick={generateNewPixCode}
+                        disabled={isProcessing}
+                        className="w-full"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Gerando novo código...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Gerar Novo QR Code
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h4 className="font-semibold mb-2">Como pagar:</h4>
@@ -562,20 +684,18 @@ const Pagamento = () => {
                   </ol>
                 </div>
 
-                <div className="text-center space-y-3">
-                  <p className="text-lg font-semibold">Valor: {formatPrice(total)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    ID do Pagamento: {pixData.paymentId}
-                  </p>
-                </div>
-
                 <div className="flex gap-3">
                   <Button 
                     variant="outline" 
+                    onClick={() => {
+                      setStep('payment');
+                      setPixData(null);
+                      setPixExpired(false);
+                      setPixTimer(0);
+                    }}
                     className="flex-1"
-                    onClick={() => navigate('/pedidos')}
                   >
-                    Ver Meus Pedidos
+                    Voltar
                   </Button>
                   <Button 
                     className="flex-1"
@@ -584,10 +704,10 @@ const Pagamento = () => {
                         title: "Aguardando pagamento",
                         description: "Assim que o pagamento for confirmado, você será notificado.",
                       });
-                      navigate('/');
+                      navigate('/pedidos');
                     }}
                   >
-                    Continuar Comprando
+                    Ver Meus Pedidos
                   </Button>
                 </div>
               </CardContent>
