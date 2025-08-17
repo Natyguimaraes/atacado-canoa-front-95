@@ -53,11 +53,18 @@ serve(async (req) => {
     console.log('MP response:', result);
 
     if (!response.ok) {
-      console.log('MP error, returning 400');
-      return new Response(JSON.stringify({ 
+      console.log('MP error, returning detailed error');
+      const errorBody = {
         error: 'Mercado Pago error', 
-        mp_error: result 
-      }), { status: 400, headers });
+        mp_error: result,
+        status: response.status,
+        statusText: response.statusText
+      };
+      console.log('Error details:', errorBody);
+      return new Response(JSON.stringify(errorBody), { 
+        status: 200, // Mudando para 200 para que o frontend receba os detalhes
+        headers 
+      });
     }
 
     console.log('Success, returning token');

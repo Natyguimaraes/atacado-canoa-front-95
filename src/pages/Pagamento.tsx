@@ -242,7 +242,6 @@ const Pagamento = () => {
         console.error('Erro COMPLETO ao criar token:', tokenError);
         console.error('Token error details:', JSON.stringify(tokenError, null, 2));
         
-        // Extrair mensagem de erro mais específica
         let errorMessage = 'Erro ao processar dados do cartão';
         if (tokenError.message) {
           errorMessage += `: ${tokenError.message}`;
@@ -252,6 +251,23 @@ const Pagamento = () => {
         }
         
         throw new Error(errorMessage);
+      }
+      
+      // Verificar se a resposta contém erro do Mercado Pago
+      if (tokenData?.error) {
+        console.error('Erro do Mercado Pago na criação do token:', tokenData);
+        
+        let mpErrorMessage = 'Erro do Mercado Pago';
+        if (tokenData.mp_error) {
+          if (tokenData.mp_error.message) {
+            mpErrorMessage += `: ${tokenData.mp_error.message}`;
+          }
+          if (tokenData.mp_error.cause) {
+            mpErrorMessage += ` - ${JSON.stringify(tokenData.mp_error.cause)}`;
+          }
+        }
+        
+        throw new Error(mpErrorMessage);
       }
       
       if (!tokenData?.id) {
@@ -422,6 +438,23 @@ const Pagamento = () => {
         }
         
         throw new Error(errorMessage);
+      }
+
+      // Verificar se a resposta contém erro do Mercado Pago
+      if (paymentResult?.error) {
+        console.error('Erro do Mercado Pago no PIX:', paymentResult);
+        
+        let mpErrorMessage = 'Erro do Mercado Pago no PIX';
+        if (paymentResult.mp_error) {
+          if (paymentResult.mp_error.message) {
+            mpErrorMessage += `: ${paymentResult.mp_error.message}`;
+          }
+          if (paymentResult.mp_error.cause) {
+            mpErrorMessage += ` - ${JSON.stringify(paymentResult.mp_error.cause)}`;
+          }
+        }
+        
+        throw new Error(mpErrorMessage);
       }
 
       console.log('PIX criado:', paymentResult);
