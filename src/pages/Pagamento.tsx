@@ -283,7 +283,7 @@ const Pagamento = () => {
         items: items as any,
         total_amount: total,
         shipping_data: shippingData as any,
-        payment_method: 'CARD',
+        payment_method: 'CARD', // Especificar claramente que é cartão
         status: 'pending'
       };
 
@@ -389,7 +389,7 @@ const Pagamento = () => {
         items: items as any,
         total_amount: total,
         shipping_data: shippingData as any,
-        payment_method: 'PIX',
+        payment_method: 'PIX', // Corrigido para PIX
         status: 'pending'
       };
 
@@ -459,7 +459,7 @@ const Pagamento = () => {
 
       console.log('PIX criado:', paymentResult);
       
-      if (paymentResult.pix_qr_code) {
+      if (paymentResult.pix_qr_code && paymentResult.pix_qr_code_base64) {
         setPixData({
           qrCode: paymentResult.pix_qr_code,
           qrCodeBase64: paymentResult.pix_qr_code_base64,
@@ -468,9 +468,17 @@ const Pagamento = () => {
         
         // Limpar carrinho
         clearCart();
+        
+        // Mostrar toast de sucesso
+        toast({
+          title: "QR Code PIX gerado!",
+          description: "Escaneie o código ou copie para efetuar o pagamento.",
+        });
+        
         setStep('pix-payment');
       } else {
-        throw new Error('Erro ao gerar QR Code PIX');
+        console.error('Dados PIX incompletos:', paymentResult);
+        throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
       }
     } catch (error: any) {
       console.error('Erro FINAL no PIX:', error);
@@ -568,7 +576,13 @@ const Pagamento = () => {
                   </Button>
                   <Button 
                     className="flex-1"
-                    onClick={() => navigate('/')}
+                    onClick={() => {
+                      toast({
+                        title: "Aguardando pagamento",
+                        description: "Assim que o pagamento for confirmado, você será notificado.",
+                      });
+                      navigate('/');
+                    }}
                   >
                     Continuar Comprando
                   </Button>
@@ -894,11 +908,11 @@ const Pagamento = () => {
                     >
                       {isProcessing ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Processando...
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {paymentData.method === 'pix' ? 'Gerando PIX...' : 'Processando...'}
                         </>
                       ) : (
-                        `Pagar ${formatPrice(total)}`
+                        paymentData.method === 'pix' ? 'Gerar QR Code PIX' : 'Finalizar Pagamento'
                       )}
                     </Button>
                   </div>
