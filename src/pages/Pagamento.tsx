@@ -405,7 +405,7 @@ const Pagamento = () => {
       }
 
       const paymentRequestData = {
-        transaction_amount: Math.round(total * 100), // Converter para centavos
+        transaction_amount: total, // Manter valor normal, não em centavos
         description: `Pedido ${order.id}`,
         payment_method_id: 'pix',
         payer: {
@@ -823,9 +823,14 @@ const Pagamento = () => {
                           <Label htmlFor="identificationNumber">CPF *</Label>
                           <Input
                             id="identificationNumber"
-                            value={cardData.identificationNumber}
-                            onChange={(e) => setCardData(prev => ({ ...prev, identificationNumber: e.target.value }))}
+                            value={cardData.identificationNumber || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              const formatted = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+                              setCardData(prev => ({ ...prev, identificationNumber: formatted }));
+                            }}
                             placeholder="000.000.000-00"
+                            maxLength={14}
                             required
                           />
                         </div>
@@ -844,8 +849,8 @@ const Pagamento = () => {
                           <Label htmlFor="cvv">CVV *</Label>
                           <Input
                             id="cvv"
-                            value={cardData.cvv}
-                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value }))}
+                            value={cardData.cvv || ''}
+                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, '') }))}
                             placeholder="123"
                             maxLength={4}
                             required

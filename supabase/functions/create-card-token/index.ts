@@ -29,20 +29,21 @@ serve(async (req) => {
       }), { status: 400, headers });
     }
 
-    // Preparar dados básicos
+    // Preparar dados básicos com public_key no final
     const payload = {
       card_number: data.card_number,
       security_code: data.security_code,
       expiration_month: data.expiration_month,
       expiration_year: data.expiration_year,
-      cardholder: data.cardholder,
-      public_key: publicKey
+      cardholder: data.cardholder
     };
+
+    console.log('Sending to MP with public key:', publicKey.substring(0, 10) + '...');
 
     console.log('Calling MP API...');
     
     // Chamar Mercado Pago
-    const response = await fetch('https://api.mercadopago.com/v1/card_tokens', {
+    const response = await fetch(`https://api.mercadopago.com/v1/card_tokens?public_key=${publicKey}`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json'
