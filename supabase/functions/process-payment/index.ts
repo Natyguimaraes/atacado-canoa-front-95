@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== TESTE PROCESS PAYMENT ===');
+    console.log('=== PROCESS PAYMENT v2 ===');
     
     const data = await req.json();
     console.log('Payment data received:', {

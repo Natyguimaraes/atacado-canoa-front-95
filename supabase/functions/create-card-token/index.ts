@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== TESTE CREATE CARD TOKEN ===');
+    console.log('=== CREATE CARD TOKEN v2 ===');
     
     const data = await req.json();
     console.log('Data received:', data);
