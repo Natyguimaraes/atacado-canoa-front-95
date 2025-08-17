@@ -230,7 +230,7 @@ const Pedidos = () => {
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-sm text-muted-foreground">
-                          Pagamento: {order.payment_method === 'pix' ? 'PIX' : 'Cartão de Crédito'}
+                          Pagamento: {order.payment_method === 'PIX' || order.payment_method === 'pix' ? 'PIX' : 'Cartão de Crédito'}
                         </p>
                       </div>
                       <div className="text-right">
