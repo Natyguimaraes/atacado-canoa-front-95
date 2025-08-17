@@ -35,6 +35,9 @@ serve(async (req) => {
 
     console.log('Calling MP payments API...');
     
+    // Remover campos que o MP não aceita
+    const { user_id, order_id, ...cleanData } = data;
+    
     // Chamar Mercado Pago
     const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
@@ -43,7 +46,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': crypto.randomUUID(),
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(cleanData),
     });
 
     const result = await response.json();
