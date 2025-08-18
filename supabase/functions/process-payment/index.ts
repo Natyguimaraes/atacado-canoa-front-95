@@ -21,6 +21,7 @@ serve(async (req) => {
       method: data.payment_method_id,
       has_token: !!data.token,
       environment: data.environment,
+      payer_email: data.payer?.email,
       full_data: JSON.stringify(data, null, 2)
     });
 

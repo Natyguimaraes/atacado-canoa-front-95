@@ -370,7 +370,7 @@ const Pagamento = () => {
 
       // Processar pagamento
       const paymentRequestData = {
-        transaction_amount: Math.round(total * 100), // Converter para centavos
+        transaction_amount: total, // Mercado Pago espera valor em reais
         description: `Pedido ${order.id}`,
         payment_method_id: tokenData.payment_method_id,
         token: tokenData.id,
@@ -478,7 +478,7 @@ const Pagamento = () => {
       }
 
       const paymentRequestData = {
-        transaction_amount: Math.round(total * 100), // Converter para centavos para o Mercado Pago
+        transaction_amount: total, // Mercado Pago espera valor em reais, não centavos
         description: `Pedido ${order.id}`,
         payment_method_id: 'pix',
         payer: {
@@ -521,13 +521,26 @@ const Pagamento = () => {
         console.error('Erro do Mercado Pago no PIX:', paymentResult);
         
         let mpErrorMessage = 'Erro do Mercado Pago no PIX';
+        
+        // Tratamento específico para diferentes tipos de erro
         if (paymentResult.mp_error) {
-          if (paymentResult.mp_error.message) {
-            mpErrorMessage += `: ${paymentResult.mp_error.message}`;
+          const mpError = paymentResult.mp_error;
+          
+          if (mpError.message === 'internal_error') {
+            mpErrorMessage = 'Erro interno do Mercado Pago. Verifique suas credenciais ou tente novamente em alguns minutos.';
+          } else if (mpError.message && mpError.message.includes('not_found')) {
+            mpErrorMessage = 'Método de pagamento PIX não encontrado. Verifique as configurações da conta.';
+          } else if (mpError.message && mpError.message.includes('invalid')) {
+            mpErrorMessage = 'Dados inválidos para gerar PIX. Verifique as informações.';
+          } else if (mpError.message) {
+            mpErrorMessage += `: ${mpError.message}`;
           }
-          if (paymentResult.mp_error.cause) {
-            mpErrorMessage += ` - ${JSON.stringify(paymentResult.mp_error.cause)}`;
+          
+          if (mpError.cause && Array.isArray(mpError.cause) && mpError.cause.length > 0) {
+            mpErrorMessage += ` - ${mpError.cause.map(c => c.description || c.code).join(', ')}`;
           }
+        } else if (paymentResult.message) {
+          mpErrorMessage = paymentResult.message;
         }
         
         throw new Error(mpErrorMessage);
