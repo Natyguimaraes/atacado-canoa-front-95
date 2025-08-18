@@ -153,11 +153,12 @@ const Pagamento = () => {
       return;
     }
 
-    if (items.length === 0) {
+    // Só redirecionar para carrinho se não estiver na tela PIX
+    if (items.length === 0 && step !== 'pix-payment') {
       navigate('/carrinho');
       return;
     }
-  }, [isAuthenticated, items.length, navigate]);
+  }, [isAuthenticated, items.length, navigate, step]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -512,15 +513,13 @@ const Pagamento = () => {
           description: "Escaneie o código ou copie para efetuar o pagamento.",
         });
         
-        // Mostrar PIX primeiro, depois limpar carrinho
+        // Mostrar PIX e configurar timer
         setStep('pix-payment');
         setPixExpired(false);
         setPixTimer(600); // 10 minutos
         
-        // Aguardar um pouco antes de limpar o carrinho para evitar bugs visuais
-        setTimeout(() => {
-          clearCart();
-        }, 1000);
+        // NÃO limpar carrinho até o pagamento ser confirmado
+        // O carrinho será limpo apenas quando o pagamento for confirmado
       } else {
         console.error('Dados PIX incompletos:', paymentResult);
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
