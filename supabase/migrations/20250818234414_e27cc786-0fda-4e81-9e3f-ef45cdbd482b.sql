@@ -1,0 +1,2 @@
+-- Add production credentials secrets
+-- These will be configured separately in the Supabase dashboard
