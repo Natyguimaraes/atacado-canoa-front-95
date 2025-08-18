@@ -34,6 +34,14 @@ serve(async (req) => {
       }), { status: 400, headers });
     }
 
+    // Validação adicional para produção
+    if (!accessToken.startsWith('APP-') && !accessToken.startsWith('TEST-')) {
+      console.log('Invalid access token format');
+      return new Response(JSON.stringify({ 
+        error: 'Invalid access token format' 
+      }), { status: 400, headers });
+    }
+
     console.log('Calling MP payments API...');
     
     // Remover campos que o MP não aceita
