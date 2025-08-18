@@ -12,7 +12,95 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    console.log('=== MERCADO PAGO WEBHOOK RECEIVED ===');
+    
+    // Obter dados do webhook
+    const bodyText = await req.text();
+    console.log('Webhook body:', bodyText);
+    
+    // Obter headers para validação
+    const xSignature = req.headers.get('x-signature');
+    const xRequestId = req.headers.get('x-request-id');
+    
+    console.log('X-Signature:', xSignature);
+    console.log('X-Request-ID:', xRequestId);
+
+    // Validar assinatura do webhook
+    const webhookSecret = Deno.env.get('MERCADO_PAGO_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      console.log('ERROR: Webhook secret not configured');
+      return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Validar assinatura se presente
+    if (xSignature && xRequestId) {
+      console.log('Validating webhook signature...');
+      
+      // Extrair ts e hash da assinatura
+      const parts = xSignature.split(',');
+      let ts = '';
+      let hash = '';
+      
+      for (const part of parts) {
+        const [key, value] = part.trim().split('=');
+        if (key === 'ts') ts = value;
+        if (key === 'v1') hash = value;
+      }
+      
+      if (!ts || !hash) {
+        console.log('Invalid signature format');
+        return new Response(JSON.stringify({ error: 'Invalid signature format' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Criar string para validação: id + request-id + ts + body
+      const stringToSign = `id;${xRequestId};ts;${ts};${bodyText}`;
+      console.log('String to sign length:', stringToSign.length);
+
+      // Calcular HMAC SHA256
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(webhookSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+
+      const signature = await crypto.subtle.sign(
+        'HMAC',
+        key,
+        encoder.encode(stringToSign)
+      );
+
+      // Converter para hex
+      const expectedHash = Array.from(new Uint8Array(signature))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      console.log('Expected hash:', expectedHash);
+      console.log('Received hash:', hash);
+
+      if (expectedHash !== hash) {
+        console.log('ERROR: Invalid webhook signature');
+        return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log('✅ Webhook signature validated successfully');
+    } else {
+      console.log('⚠️ No signature headers found, proceeding without validation');
+    }
+
+    // Parse do body
+    const body = JSON.parse(bodyText);
     const { type, data } = body;
 
     console.log('Webhook recebido:', { type, data });
