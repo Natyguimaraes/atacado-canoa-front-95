@@ -66,13 +66,26 @@ serve(async (req) => {
         console.log('MERCADO PAGO INTERNAL ERROR DETECTED');
         console.log('Possible causes:');
         console.log('1. Access token invalid or expired');
-        console.log('2. Request format not accepted');
+        console.log('2. Request format not accepted'); 
         console.log('3. MP service temporarily unavailable');
         console.log('4. Account configuration issue');
+        console.log('5. Sandbox account not properly configured');
+        console.log('6. Missing required fields in request');
+        
+        // Log específico para depuração
+        console.log('Current access token prefix:', accessToken.substring(0, 20) + '...');
+        console.log('Request payload:', JSON.stringify(cleanData, null, 2));
+        console.log('MP Response headers:', Object.fromEntries(response.headers.entries()));
         
         // Verificar se há details no erro
         if (result.cause && Array.isArray(result.cause)) {
           console.log('Error causes:', JSON.stringify(result.cause, null, 2));
+        }
+        
+        // Tentar usar credentials diferentes para teste
+        if (accessToken.startsWith('TEST-')) {
+          console.log('Using TEST credentials - check sandbox account configuration');
+          console.log('Ensure the TEST user has proper permissions and account setup');
         }
       }
       
