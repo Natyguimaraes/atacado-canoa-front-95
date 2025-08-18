@@ -21,11 +21,18 @@ serve(async (req) => {
       has_security_code: !!data.security_code,
       expiration_month: data.expiration_month,
       expiration_year: data.expiration_year,
-      has_cardholder: !!data.cardholder
+      has_cardholder: !!data.cardholder,
+      environment: data.environment
     });
 
-    // Verificar se temos a public key
-    const publicKey = Deno.env.get('MERCADO_PAGO_PUBLIC_KEY');
+    // Get public key based on environment
+    const isProduction = data.environment === 'production';
+    const publicKey = isProduction 
+      ? Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_PROD')
+      : Deno.env.get('MERCADO_PAGO_PUBLIC_KEY');
+    
+    console.log('Environment:', data.environment);
+    console.log('Using production credentials:', isProduction);
     console.log('Public key exists:', !!publicKey);
     console.log('Public key length:', publicKey?.length);
     console.log('Public key starts with:', publicKey?.substring(0, 15) + '...');

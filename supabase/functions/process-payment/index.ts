@@ -20,11 +20,18 @@ serve(async (req) => {
       amount: data.transaction_amount,
       method: data.payment_method_id,
       has_token: !!data.token,
+      environment: data.environment,
       full_data: JSON.stringify(data, null, 2)
     });
 
-    // Verificar access token
-    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    // Get access token based on environment
+    const isProduction = data.environment === 'production';
+    const accessToken = isProduction 
+      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
+      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    
+    console.log('Environment:', data.environment);
+    console.log('Using production credentials:', isProduction);
     console.log('Access token exists:', !!accessToken);
     
     if (!accessToken) {

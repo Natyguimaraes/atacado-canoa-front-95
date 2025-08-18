@@ -11,9 +11,7 @@ import { CreditCard, QrCode, Copy, Check, Loader2, ArrowLeft, Clock, AlertCircle
 import { useToast } from '@/hooks/use-toast';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-
-// Inicializar MercadoPago com a chave pública
-initMercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
+import { isProduction, getEnvironmentConfig } from '../lib/mercadoPago';
 
 interface ShippingData {
   fullName: string;
@@ -91,6 +89,9 @@ const Pagamento = () => {
 
   const [pixData, setPixData] = useState<PixData | null>(null);
 
+  // Get environment configuration once
+  const envConfig = getEnvironmentConfig();
+
   // Timer do PIX - 10 minutos (600 segundos)
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -129,22 +130,46 @@ const Pagamento = () => {
     await handlePixPayment();
   };
 
-  // Inicializar MercadoPago SDK
+  // Inicializar MercadoPago SDK com credenciais baseadas no ambiente
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://sdk.mercadopago.com/js/v2';
-    script.async = true;
-    script.onload = () => {
-      const mp = new (window as any).MercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
-      setMercadoPago(mp);
-    };
-    document.body.appendChild(script);
+    const initializeMercadoPago = async () => {
+      try {
+        const envConfig = getEnvironmentConfig();
+        console.log('Environment config:', envConfig);
+        
+        // Get the appropriate public key
+        const { data: configData, error } = await supabase.functions.invoke('get-mp-config', {
+          body: { environment: envConfig.environment }
+        });
+        
+        if (error) {
+          console.error('Error getting MP config:', error);
+          // Fallback to hardcoded test key
+          initMercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
+          return;
+        }
+        
+        console.log('Using public key:', configData.publicKey.substring(0, 20) + '...');
+        initMercadoPago(configData.publicKey);
+        
+        // Initialize SDK script for additional functionality if needed
+        const script = document.createElement('script');
+        script.src = 'https://sdk.mercadopago.com/js/v2';
+        script.async = true;
+        script.onload = () => {
+          const mp = new (window as any).MercadoPago(configData.publicKey);
+          setMercadoPago(mp);
+        };
+        document.body.appendChild(script);
 
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
+      } catch (error) {
+        console.error('Error initializing MercadoPago:', error);
+        // Fallback to hardcoded test key
+        initMercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
       }
     };
+
+    initializeMercadoPago();
   }, []);
 
   useEffect(() => {
@@ -274,9 +299,13 @@ const Pagamento = () => {
       });
 
       console.log('Chamando create-card-token...');
+      
       // Criar token do cartão via edge function
       const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
-        body: tokenRequestData
+        body: {
+          ...tokenRequestData,
+          environment: envConfig.environment
+        }
       });
 
       if (tokenError) {
@@ -367,7 +396,10 @@ const Pagamento = () => {
       console.log('Chamando process-payment...');
 
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
-        body: paymentRequestData
+        body: {
+          ...paymentRequestData,
+          environment: envConfig.environment
+        }
       });
 
       if (paymentError) {
@@ -463,7 +495,10 @@ const Pagamento = () => {
       };
 
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
-        body: paymentRequestData
+        body: {
+          ...paymentRequestData,
+          environment: envConfig.environment
+        }
       });
 
       if (paymentError) {
