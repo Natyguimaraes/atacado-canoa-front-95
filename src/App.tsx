@@ -16,6 +16,7 @@ import EstoqueManagement from "./pages/Admin/EstoqueManagement";
 import Pagamento from "./pages/Pagamento";
 import Configuracoes from "./pages/Configuracoes";
 import Pedidos from "./pages/Pedidos";
+import StatusPagamento from "./pages/StatusPagamento";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/pagamento" element={<Pagamento />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/pedidos" element={<Pedidos />} />
+              <Route path="/status-pagamento/:id" element={<StatusPagamento />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
