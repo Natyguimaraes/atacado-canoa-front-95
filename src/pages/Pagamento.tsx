@@ -505,12 +505,16 @@ const Pagamento = () => {
         console.error('Erro COMPLETO no PIX:', paymentError);
         console.error('PIX error details:', JSON.stringify(paymentError, null, 2));
         
+        // Tentar capturar mais detalhes do erro
         let errorMessage = 'Erro ao processar pagamento PIX';
         if (paymentError.message) {
           errorMessage += `: ${paymentError.message}`;
         }
-        if (paymentError.details) {
-          errorMessage += ` - ${JSON.stringify(paymentError.details)}`;
+        
+        // Verificar se há detalhes específicos no contexto do erro
+        if (paymentError.context && Object.keys(paymentError.context).length > 0) {
+          console.error('Error context:', paymentError.context);
+          errorMessage += ` - Context: ${JSON.stringify(paymentError.context)}`;
         }
         
         throw new Error(errorMessage);
@@ -919,31 +923,48 @@ const Pagamento = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Debug button */}
-                  <Button 
-                    onClick={async () => {
-                      try {
-                        console.log('Testing MP connection...');
-                        const result = await supabase.functions.invoke('debug-payment');
-                        console.log('Debug result:', result);
-                        toast({
-                          title: result.data?.success ? "✅ Conectado" : "❌ Erro",
-                          description: result.data?.message || result.data?.error || 'Teste concluído'
-                        });
-                      } catch (error) {
-                        console.error('Debug error:', error);
-                        toast({
-                          title: "Erro no teste",
-                          description: String(error),
-                          variant: "destructive"
-                        });
-                      }
-                    }}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    🔧 Testar Conexão MP
-                  </Button>
+                  {/* Debug button to test MP connection */}
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <h4 className="font-semibold mb-2">🔧 Diagnóstico</h4>
+                    <div className="space-y-2">
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            console.log('Testing MP config...');
+                            const { data, error } = await supabase.functions.invoke('get-mp-config', {
+                              body: { environment: envConfig.environment }
+                            });
+                            
+                            if (error) {
+                              toast({
+                                title: "❌ Erro de Configuração",
+                                description: `Erro ao obter configurações: ${error.message}`,
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            
+                            toast({
+                              title: "✅ Configuração OK",
+                              description: `Ambiente: ${envConfig.environment} | Chave: ${data.publicKey.substring(0, 15)}...`,
+                            });
+                          } catch (error) {
+                            console.error('Config test error:', error);
+                            toast({
+                              title: "❌ Erro no teste",
+                              description: String(error),
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                      >
+                        Testar Configuração MP
+                      </Button>
+                    </div>
+                  </div>
 
                   {/* Seleção do método */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

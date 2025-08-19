@@ -36,9 +36,12 @@ serve(async (req) => {
     console.log('Access token exists:', !!accessToken);
     
     if (!accessToken) {
-      console.log('Returning error: no access token');
+      console.log('ERROR: Access token not found for environment:', data.environment);
+      console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(key => key.includes('MERCADO')));
       return new Response(JSON.stringify({ 
-        error: 'Access token not configured' 
+        error: 'Access token not configured',
+        environment: data.environment,
+        isProduction: isProduction
       }), { status: 400, headers });
     }
 

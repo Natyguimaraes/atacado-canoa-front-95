@@ -56,13 +56,6 @@ export const getMercadoPagoPublicKey = async (): Promise<string> => {
 export const getEnvironmentConfig = () => {
   const isProd = isProduction();
   
-  // Log para debugging
-  console.log('Environment detection debug:', {
-    hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
-    isProduction: isProd,
-    environment: isProd ? 'production' : 'test'
-  });
-  
   return {
     environment: isProd ? 'production' : 'test',
     isProduction: isProd,
