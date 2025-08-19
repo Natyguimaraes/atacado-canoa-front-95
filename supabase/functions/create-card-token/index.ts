@@ -45,7 +45,7 @@ serve(async (req) => {
     }
 
     // Validar formato da public key
-    if (!publicKey.startsWith('TEST-') && !publicKey.startsWith('APP-')) {
+    if (!publicKey.startsWith('TEST-') && !publicKey.startsWith('APP_USR-')) {
       console.log('ERROR: Invalid public key format');
       return new Response(JSON.stringify({ 
         error: 'Invalid public key format' 
