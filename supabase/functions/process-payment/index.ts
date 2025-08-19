@@ -52,8 +52,8 @@ serve(async (req) => {
 
     console.log('Calling MP payments API...');
     
-    // Remover campos que o MP não aceita
-    const { user_id, order_id, ...cleanData } = data;
+    // Remover campos que o MP não aceita (environment não é um campo válido do MP)
+    const { user_id, order_id, environment, ...cleanData } = data;
     
     console.log('Clean data to send to MP:', JSON.stringify(cleanData, null, 2));
     console.log('Access token starts with:', accessToken.substring(0, 15) + '...');

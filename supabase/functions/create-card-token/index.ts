@@ -52,17 +52,19 @@ serve(async (req) => {
       }), { status: 400, headers });
     }
 
-    // Preparar payload conforme documentação MP
+    // Remover campos que não fazem parte da API do MP
+    const { environment, ...cardData } = data; // Remove environment do payload
+    
     const payload = {
-      card_number: data.card_number,
-      security_code: data.security_code,
-      expiration_month: parseInt(data.expiration_month),
-      expiration_year: parseInt(data.expiration_year),
+      card_number: cardData.card_number,
+      security_code: cardData.security_code,
+      expiration_month: parseInt(cardData.expiration_month),
+      expiration_year: parseInt(cardData.expiration_year),
       cardholder: {
-        name: data.cardholder.name,
+        name: cardData.cardholder.name,
         identification: {
-          type: data.cardholder.identification.type,
-          number: data.cardholder.identification.number
+          type: cardData.cardholder.identification.type,
+          number: cardData.cardholder.identification.number
         }
       }
     };
