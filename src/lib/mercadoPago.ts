@@ -12,7 +12,9 @@ export const isProduction = (): boolean => {
   const productionDomains = [
     'atacadocanoa.com',
     'www.atacadocanoa.com',
-    'atacado-canoa-loja.lovable.app', // Domínio de produção atual
+    'atacado-canoa-loja.lovable.app',
+    'atacado-canoa-front.vercel.app'
+    // Domínio de produção atual
     // Add other production domains here
   ];
   
