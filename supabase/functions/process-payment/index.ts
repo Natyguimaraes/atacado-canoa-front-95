@@ -41,7 +41,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         error: 'Access token not configured',
         environment: data.environment,
-        isProduction: isProduction
+        isProduction: isProduction,
+        debug: 'No access token found for the specified environment'
       }), { status: 400, headers });
     }
 

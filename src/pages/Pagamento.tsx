@@ -511,6 +511,11 @@ const Pagamento = () => {
           errorMessage += `: ${paymentError.message}`;
         }
         
+        // Se é um erro 400, provavelmente é problema de configuração
+        if (paymentError.message && paymentError.message.includes('non-2xx status code')) {
+          errorMessage = 'Erro de configuração: Verifique se as credenciais de produção do Mercado Pago estão configuradas corretamente no Supabase.';
+        }
+        
         // Verificar se há detalhes específicos no contexto do erro
         if (paymentError.context && Object.keys(paymentError.context).length > 0) {
           console.error('Error context:', paymentError.context);
