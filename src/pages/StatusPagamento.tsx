@@ -27,13 +27,28 @@ export default function StatusPagamento() {
     queryFn: async () => {
       if (!paymentId) throw new Error("ID do pagamento não encontrado");
       
-      const { data, error } = await supabase
+      // Primeiro tentar buscar por ID direto
+      let { data, error } = await supabase
         .from('payments')
         .select('*')
         .eq('id', paymentId)
-        .single();
+        .maybeSingle();
+
+      // Se não encontrar por ID, tentar buscar por external_id
+      if (!data && !error) {
+        const { data: dataByExternalId, error: errorByExternalId } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('external_id', paymentId)
+          .maybeSingle();
+        
+        data = dataByExternalId;
+        error = errorByExternalId;
+      }
 
       if (error) throw error;
+      if (!data) throw new Error("Pagamento não encontrado");
+      
       return { status: "success", data };
     },
     refetchInterval: 5000, // 5 segundos para atualizar mais frequentemente

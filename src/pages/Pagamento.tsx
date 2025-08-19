@@ -7,8 +7,9 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { supabase } from '../integrations/supabase/client';
+import { processPaymentResponse } from '../lib/paymentUtils';
 import { CreditCard, QrCode, Copy, Check, Loader2, ArrowLeft, Clock, AlertCircle, RefreshCw } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/hooks/use-toast";
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { isProduction, getEnvironmentConfig } from '../lib/mercadoPago';
@@ -419,7 +420,16 @@ const Pagamento = () => {
 
       console.log('Pagamento processado:', paymentResult);
       
-      // Limpar carrinho
+      // Processar resposta do pagamento e salvar no banco
+      const paymentRecord = await processPaymentResponse(
+        paymentResult,
+        order.id,
+        user.id,
+        total,
+        'CREDIT'
+      );
+      
+      // Limpar carrinho após salvar
       clearCart();
       
       if (paymentResult.status === 'approved') {
@@ -427,14 +437,14 @@ const Pagamento = () => {
           title: "Pagamento aprovado!",
           description: "Seu pedido foi processado com sucesso.",
         });
-        navigate('/status-pagamento', { state: { paymentData: paymentResult, success: true } });
+        navigate(`/status-pagamento/${paymentRecord.id}`);
       } else {
         toast({
           title: "Pagamento em processamento",
           description: "Aguarde a confirmação do pagamento.",
           variant: "default",
         });
-        navigate('/status-pagamento', { state: { paymentData: paymentResult, success: false } });
+        navigate(`/status-pagamento/${paymentRecord.id}`);
       }
     } catch (error: any) {
       console.error('Erro FINAL no cartão:', error);
@@ -566,10 +576,23 @@ const Pagamento = () => {
 
       console.log('PIX criado:', paymentResult);
       
-      if (paymentResult.pix_qr_code && paymentResult.pix_qr_code_base64) {
+      // Processar resposta do pagamento PIX e salvar no banco
+      const paymentRecord = await processPaymentResponse(
+        paymentResult,
+        order.id,
+        user.id,
+        total,
+        'PIX'
+      );
+
+      // Verificar se há dados PIX válidos
+      const qrCode = paymentResult.point_of_interaction?.transaction_data?.qr_code;
+      const qrCodeBase64 = paymentResult.point_of_interaction?.transaction_data?.qr_code_base64;
+      
+      if (qrCode && qrCodeBase64) {
         setPixData({
-          qrCode: paymentResult.pix_qr_code,
-          qrCodeBase64: paymentResult.pix_qr_code_base64,
+          qrCode,
+          qrCodeBase64,
           paymentId: paymentResult.id
         });
         
@@ -579,13 +602,23 @@ const Pagamento = () => {
           description: "Escaneie o código ou copie para efetuar o pagamento.",
         });
         
-        // Mostrar PIX e configurar timer
+        // Mostrar PIX e configurar timer (24 horas)
         setStep('pix-payment');
         setPixExpired(false);
-        setPixTimer(600); // 10 minutos
         
-        // NÃO limpar carrinho até o pagamento ser confirmado
-        // O carrinho será limpo apenas quando o pagamento for confirmado
+        // Calcular tempo restante para expiração
+        const expirationTime = new Date(paymentResult.date_of_expiration).getTime();
+        const now = new Date().getTime();
+        const timeRemaining = Math.max(0, expirationTime - now);
+        setPixTimer(Math.floor(timeRemaining / 1000));
+        
+        // Limpar carrinho após criar PIX
+        clearCart();
+        
+        // Redirecionar para página de status após alguns segundos
+        setTimeout(() => {
+          navigate(`/status-pagamento/${paymentRecord.id}`);
+        }, 3000);
       } else {
         console.error('Dados PIX incompletos:', paymentResult);
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');

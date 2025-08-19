@@ -114,7 +114,7 @@ serve(async (req) => {
       }
 
       // Buscar detalhes do pagamento na API do Mercado Pago
-      const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+      const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
       if (!accessToken) {
         throw new Error('Token do Mercado Pago não configurado');
       }

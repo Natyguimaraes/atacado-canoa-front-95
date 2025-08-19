@@ -69,7 +69,13 @@ serve(async (req) => {
     // Remover campos que o MP não aceita (environment não é um campo válido do MP)
     const { user_id, order_id, environment, ...cleanData } = data;
     
-    console.log('Clean data to send to MP:', JSON.stringify(cleanData, null, 2));
+    // Adicionar notification_url para webhook
+    const paymentDataWithWebhook = {
+      ...cleanData,
+      notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercado-pago-webhook`
+    };
+    
+    console.log('Clean data to send to MP:', JSON.stringify(paymentDataWithWebhook, null, 2));
     console.log('Access token starts with:', accessToken.substring(0, 15) + '...');
     
     // Chamar Mercado Pago
@@ -80,7 +86,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': crypto.randomUUID(),
       },
-      body: JSON.stringify(cleanData),
+      body: JSON.stringify(paymentDataWithWebhook),
     });
 
     const result = await response.json();
@@ -142,12 +148,23 @@ serve(async (req) => {
       payment_method_id: result.payment_method_id,
     };
 
-    // Para PIX, adicionar QR code
+    // Para PIX, adicionar QR code e dados extras
     if (data.payment_method_id === 'pix' && result.point_of_interaction) {
       responseData = {
         ...responseData,
+        point_of_interaction: result.point_of_interaction,
+        date_of_expiration: result.date_of_expiration,
         pix_qr_code: result.point_of_interaction.transaction_data.qr_code,
         pix_qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
+      };
+    }
+
+    // Para cartão, adicionar dados extras
+    if (data.payment_method_id !== 'pix') {
+      responseData = {
+        ...responseData,
+        installments: result.installments,
+        payment_method: result.payment_method,
       };
     }
 
