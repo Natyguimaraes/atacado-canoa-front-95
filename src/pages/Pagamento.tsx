@@ -494,6 +494,13 @@ const Pagamento = () => {
         order_id: order.id,
       };
 
+      console.log('=== CHAMANDO PROCESS-PAYMENT ===');
+      console.log('Environment:', envConfig.environment);
+      console.log('Payment data:', JSON.stringify({
+        ...paymentRequestData,
+        environment: envConfig.environment
+      }, null, 2));
+
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
         body: {
           ...paymentRequestData,
@@ -502,24 +509,26 @@ const Pagamento = () => {
       });
 
       if (paymentError) {
-        console.error('Erro COMPLETO no PIX:', paymentError);
-        console.error('PIX error details:', JSON.stringify(paymentError, null, 2));
+        console.error('=== ERRO DETALHADO DA EDGE FUNCTION ===');
+        console.error('Error object:', paymentError);
+        console.error('Error name:', paymentError.name);
+        console.error('Error message:', paymentError.message);
+        console.error('Error context:', paymentError.context);
+        console.error('Full error JSON:', JSON.stringify(paymentError, null, 2));
         
-        // Tentar capturar mais detalhes do erro
+        // Tentar capturar response body se disponível
+        if (paymentError.context && paymentError.context.body) {
+          console.error('Response body:', paymentError.context.body);
+        }
+        
         let errorMessage = 'Erro ao processar pagamento PIX';
         if (paymentError.message) {
           errorMessage += `: ${paymentError.message}`;
         }
         
-        // Se é um erro 400, provavelmente é problema de configuração
+        // Se é um erro 400, mostrar mensagem mais específica
         if (paymentError.message && paymentError.message.includes('non-2xx status code')) {
-          errorMessage = 'Erro de configuração: Verifique se as credenciais de produção do Mercado Pago estão configuradas corretamente no Supabase.';
-        }
-        
-        // Verificar se há detalhes específicos no contexto do erro
-        if (paymentError.context && Object.keys(paymentError.context).length > 0) {
-          console.error('Error context:', paymentError.context);
-          errorMessage += ` - Context: ${JSON.stringify(paymentError.context)}`;
+          errorMessage = 'Erro de configuração: Problema na comunicação com o Mercado Pago. Verifique os logs da edge function.';
         }
         
         throw new Error(errorMessage);

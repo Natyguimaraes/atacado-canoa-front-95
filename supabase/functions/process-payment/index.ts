@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== PROCESS PAYMENT v3 ===');
+    console.log('=== PROCESS PAYMENT v4 ===');
     
     const data = await req.json();
     console.log('Payment data received:', {
@@ -34,6 +34,7 @@ serve(async (req) => {
     console.log('Environment:', data.environment);
     console.log('Using production credentials:', isProduction);
     console.log('Access token exists:', !!accessToken);
+    console.log('Access token prefix:', accessToken ? accessToken.substring(0, 20) + '...' : 'NONE');
     
     if (!accessToken) {
       console.log('ERROR: Access token not found for environment:', data.environment);
