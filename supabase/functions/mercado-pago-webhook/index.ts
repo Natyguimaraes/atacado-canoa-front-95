@@ -87,10 +87,29 @@ serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
       // Atualizar status do pagamento no banco de dados
+      // Mapear status do Mercado Pago para nossos status válidos
+      const mapStatus = (mpStatus: string) => {
+        switch (mpStatus?.toLowerCase()) {
+          case 'approved':
+            return 'PAID';
+          case 'pending':
+            return 'PENDING';
+          case 'cancelled':
+          case 'canceled':
+            return 'CANCELED';
+          case 'rejected':
+            return 'FAILED';
+          case 'in_process':
+            return 'IN_PROCESS';
+          default:
+            return 'PENDING';
+        }
+      };
+
       const { data: payment, error: paymentUpdateError } = await supabase
         .from('payments')
         .update({
-          status: paymentData.status?.toUpperCase() || 'PENDING',
+          status: mapStatus(paymentData.status),
           paid_at: paymentData.status === 'approved' ? new Date().toISOString() : null,
           updated_at: new Date().toISOString()
         })
