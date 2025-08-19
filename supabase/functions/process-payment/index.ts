@@ -47,11 +47,20 @@ serve(async (req) => {
       }), { status: 400, headers });
     }
 
-    // Validação adicional para produção
-    if (!accessToken.startsWith('APP-') && !accessToken.startsWith('TEST-')) {
-      console.log('Invalid access token format');
+    // Validação do formato do access token
+    const isValidFormat = (
+      accessToken.startsWith('APP_USR-') || // Production tokens
+      accessToken.startsWith('TEST-') ||     // Test tokens
+      accessToken.startsWith('APP-')         // Alternative production format
+    );
+    
+    if (!isValidFormat) {
+      console.log('Invalid access token format. Expected: APP_USR-, TEST-, or APP-');
+      console.log('Received token prefix:', accessToken.substring(0, 15) + '...');
       return new Response(JSON.stringify({ 
-        error: 'Invalid access token format' 
+        error: 'Invalid access token format',
+        expected_formats: ['APP_USR-', 'TEST-', 'APP-'],
+        received_prefix: accessToken.substring(0, 10) + '...'
       }), { status: 400, headers });
     }
 
