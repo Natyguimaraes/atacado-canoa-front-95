@@ -7,12 +7,14 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { supabase } from '../integrations/supabase/client';
-import { processPaymentResponse } from '../lib/paymentUtils';
 import { CreditCard, QrCode, Copy, Check, Loader2, ArrowLeft, Clock, AlertCircle, RefreshCw } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { isProduction, getEnvironmentConfig } from '../lib/mercadoPago';
+import { getEnvironmentConfig } from '../lib/mercadoPago';
+
+const envConfig = getEnvironmentConfig();
+initMercadoPago(envConfig.publicKey);
 
 interface ShippingData {
   fullName: string;
@@ -90,16 +92,11 @@ const Pagamento = () => {
 
   const [pixData, setPixData] = useState<PixData | null>(null);
 
-  // Get environment configuration once
-  const envConfig = getEnvironmentConfig();
-
-  // Timer do PIX - 10 minutos (600 segundos)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (step === 'pix-payment' && pixData && !pixExpired) {
-      // Iniciar timer de 10 minutos
-      setPixTimer(600); // 10 minutos em segundos
+      setPixTimer(600);
       
       interval = setInterval(() => {
         setPixTimer((prev) => {
@@ -117,61 +114,34 @@ const Pagamento = () => {
     };
   }, [step, pixData, pixExpired]);
 
-  // Função para formatar o tempo restante
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  // Função para gerar novo QR Code PIX
   const generateNewPixCode = async () => {
     setPixExpired(false);
     setPixData(null);
     await handlePixPayment();
   };
 
-  // Inicializar MercadoPago SDK com credenciais baseadas no ambiente
   useEffect(() => {
-    const initializeMercadoPago = async () => {
-      try {
-        const envConfig = getEnvironmentConfig();
-        console.log('Environment config:', envConfig);
-        
-        // Get the appropriate public key
-        const { data: configData, error } = await supabase.functions.invoke('get-mp-config', {
-          body: { environment: envConfig.environment }
-        });
-        
-        if (error) {
-          console.error('Error getting MP config:', error);
-          // Fallback to hardcoded test key
-          initMercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
-          return;
-        }
-        
-        console.log('Using public key:', configData.publicKey.substring(0, 20) + '...');
-        initMercadoPago(configData.publicKey);
-        
-        // Initialize SDK script for additional functionality if needed
-        const script = document.createElement('script');
-        script.src = 'https://sdk.mercadopago.com/js/v2';
-        script.async = true;
-        script.onload = () => {
-          const mp = new (window as any).MercadoPago(configData.publicKey);
-          setMercadoPago(mp);
-        };
-        document.body.appendChild(script);
+    const script = document.createElement('script');
+    script.src = 'https://sdk.mercadopago.com/js/v2';
+    script.async = true;
+    script.onload = () => {
+      const mp = new (window as any).MercadoPago(envConfig.publicKey);
+      setMercadoPago(mp);
+    };
+    document.body.appendChild(script);
 
-      } catch (error) {
-        console.error('Error initializing MercadoPago:', error);
-        // Fallback to hardcoded test key
-        initMercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
       }
     };
-
-    initializeMercadoPago();
-  }, []);
+  }, [envConfig.publicKey]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -179,7 +149,6 @@ const Pagamento = () => {
       return;
     }
 
-    // Só redirecionar para carrinho se não estiver na tela PIX
     if (items.length === 0 && step !== 'pix-payment') {
       navigate('/carrinho');
       return;
@@ -240,13 +209,10 @@ const Pagamento = () => {
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar campos obrigatórios
     if (!shippingData.fullName || !shippingData.email || !shippingData.zipCode || 
         !shippingData.address || !shippingData.number || !shippingData.city) {
-      toast({
-        title: "Campos obrigatórios",
+      toast.error("Campos obrigatórios", {
         description: "Preencha todos os campos obrigatórios.",
-        variant: "destructive",
       });
       return;
     }
@@ -257,222 +223,115 @@ const Pagamento = () => {
   const handleCardPayment = async () => {
     try {
       setIsProcessing(true);
-      console.log('Iniciando pagamento com cartão', { cardData });
       
-      // Validar dados do cartão
-      console.log('Validando dados do cartão:', { 
-        cardNumber: !!cardData.cardNumber, 
-        cardholderName: !!cardData.cardholderName, 
-        expiryDate: !!cardData.expiryDate, 
-        cvv: !!cardData.cvv,
-        identificationNumber: !!cardData.identificationNumber
-      });
-
       if (!cardData.cardNumber || !cardData.cardholderName || !cardData.expiryDate || !cardData.cvv || !cardData.identificationNumber) {
-        console.log('Erro na validação - campos faltando:', { cardData });
         throw new Error('Preencha todos os campos do cartão, incluindo o CPF');
       }
 
-      // Validar formato da data
       const [month, year] = cardData.expiryDate.split('/');
       if (!month || !year || month.length !== 2 || year.length !== 2) {
         throw new Error('Data de validade inválida. Use o formato MM/AA');
       }
+      
+      const tokenResponse: any = await new Promise((resolve, reject) => {
+        if (!mercadoPago) {
+          reject(new Error('Mercado Pago SDK não inicializado.'));
+          return;
+        }
 
-      const tokenRequestData = {
-        card_number: cardData.cardNumber.replace(/\s/g, ''),
-        cardholder: {
-          name: cardData.cardholderName.toUpperCase(),
-          identification: {
-            type: cardData.identificationType || 'CPF',
-            number: cardData.identificationNumber.replace(/\D/g, '')
+        const tokenizationData = {
+          card_number: cardData.cardNumber.replace(/\s/g, ''),
+          expiration_month: parseInt(month),
+          expiration_year: parseInt('20' + year),
+          security_code: cardData.cvv,
+          cardholder_name: cardData.cardholderName,
+          identification_type: cardData.identificationType,
+          identification_number: cardData.identificationNumber.replace(/\D/g, ''),
+        };
+
+        (mercadoPago as any).createCardToken(tokenizationData, (status: number, response: any) => {
+          if (status >= 200 && status < 300) {
+            resolve(response);
+          } else {
+            reject(new Error(`Erro na tokenização do cartão: ${response.message || 'Erro desconhecido'}`));
           }
-        },
-        expiration_month: parseInt(month),
-        expiration_year: parseInt('20' + year),
-        security_code: cardData.cvv
-      };
-
-      console.log('Dados preparados para token:', {
-        ...tokenRequestData,
-        card_number: '**** **** **** ' + tokenRequestData.card_number.slice(-4),
-        security_code: '***'
+        });
       });
-
-      console.log('Chamando create-card-token...');
       
-      // Criar token do cartão via edge function
-      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
-        body: {
-          ...tokenRequestData,
-          environment: envConfig.environment
-        }
-      });
-
-      if (tokenError) {
-        console.error('Erro COMPLETO ao criar token:', tokenError);
-        console.error('Token error details:', JSON.stringify(tokenError, null, 2));
-        
-        let errorMessage = 'Erro ao processar dados do cartão';
-        if (tokenError.message) {
-          errorMessage += `: ${tokenError.message}`;
-        }
-        if (tokenError.details) {
-          errorMessage += ` - ${JSON.stringify(tokenError.details)}`;
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      // Verificar se a resposta contém erro do Mercado Pago
-      if (tokenData?.error) {
-        console.error('Erro do Mercado Pago na criação do token:', tokenData);
-        
-        let mpErrorMessage = 'Erro do Mercado Pago';
-        if (tokenData.mp_error) {
-          if (tokenData.mp_error.message) {
-            mpErrorMessage += `: ${tokenData.mp_error.message}`;
-          }
-          if (tokenData.mp_error.cause) {
-            mpErrorMessage += ` - ${JSON.stringify(tokenData.mp_error.cause)}`;
-          }
-        }
-        
-        throw new Error(mpErrorMessage);
-      }
-      
-      if (!tokenData?.id) {
-        console.error('Token data recebido:', tokenData);
-        throw new Error('Token do cartão não foi criado corretamente');
-      }
-
-      console.log('Token criado:', tokenData.id);
-
-      console.log('Criando pedido...');
       const orderData = {
         user_id: user?.id,
         items: items as any,
         total_amount: total,
         shipping_data: shippingData as any,
-        payment_method: 'CARD', // Especificar claramente que é cartão
+        payment_method: 'CARD',
         status: 'pending'
       };
-
+      
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert(orderData)
         .select()
         .single();
-
+      
       if (orderError) {
-        console.error('Erro ao criar pedido:', orderError);
         throw new Error('Erro ao criar pedido');
       }
-
-      // Processar pagamento
+      
       const paymentRequestData = {
-        transaction_amount: total, // Mercado Pago espera valor em reais
+        transaction_amount: total,
         description: `Pedido ${order.id}`,
-        payment_method_id: tokenData.payment_method_id,
-        token: tokenData.id,
+        payment_method_id: tokenResponse.payment_method_id,
+        token: tokenResponse.id,
         installments: paymentData.installments || 1,
         payer: {
           email: user?.email || '',
-          first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
-          last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
           identification: {
             type: cardData.identificationType || 'CPF',
-            number: cardData.identificationNumber.replace(/\D/g, '') || '11144477735',
+            number: cardData.identificationNumber.replace(/\D/g, '')
           },
         },
         user_id: user?.id,
-        order_id: order.id,
+        order_id: order.id
       };
-
-      console.log('Processando pagamento com dados:', {
-        ...paymentRequestData,
-        token: '***TOKEN***'
-      });
-
-      console.log('Chamando process-payment...');
-
+      
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
-        body: {
-          ...paymentRequestData,
-          environment: envConfig.environment
-        }
+        body: paymentRequestData
       });
-
+      
       if (paymentError) {
-        console.error('Erro COMPLETO no pagamento:', paymentError);
-        console.error('Payment error details:', JSON.stringify(paymentError, null, 2));
-        
-        let errorMessage = 'Erro ao processar pagamento';
-        if (paymentError.message) {
-          errorMessage += `: ${paymentError.message}`;
-        }
-        if (paymentError.details) {
-          errorMessage += ` - ${JSON.stringify(paymentError.details)}`;
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error('Erro ao processar o pagamento do cartão');
       }
 
-      console.log('Pagamento processado:', paymentResult);
-      
-      // Processar resposta do pagamento e salvar no banco
-      const paymentRecord = await processPaymentResponse(
-        paymentResult,
-        order.id,
-        user.id,
-        total,
-        'CREDIT'
-      );
-      
-      // Limpar carrinho após salvar
-      clearCart();
-      
-      if (paymentResult.status === 'approved') {
-        toast({
-          title: "Pagamento aprovado!",
-          description: "Seu pedido foi processado com sucesso.",
-        });
-        navigate(`/status-pagamento/${paymentRecord.id}`);
+      if (paymentResult?.status === 'approved') {
+        toast.success("Pagamento aprovado!");
+        navigate('/status-pagamento', { state: { success: true } });
+        clearCart();
       } else {
-        toast({
-          title: "Pagamento em processamento",
-          description: "Aguarde a confirmação do pagamento.",
-          variant: "default",
+        toast.error("Pagamento rejeitado!", {
+          description: paymentResult?.status_detail || "Por favor, verifique os dados do cartão."
         });
-        navigate(`/status-pagamento/${paymentRecord.id}`);
+        navigate('/status-pagamento', { state: { success: false, reason: paymentResult?.status_detail } });
       }
-    } catch (error: any) {
-      console.error('Erro FINAL no cartão:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error stack:', error.stack);
       
-      toast({
-        title: "Erro no pagamento",
+    } catch (error: any) {
+      toast.error("Erro no pagamento", {
         description: error.message || "Não foi possível processar o pagamento. Tente novamente.",
-        variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
     }
   };
-
+  
   const handlePixPayment = async () => {
     try {
       setIsProcessing(true);
-      console.log('Iniciando pagamento PIX');
       
-      // Criar pedido primeiro
       const orderData = {
         user_id: user?.id,
         items: items as any,
         total_amount: total,
         shipping_data: shippingData as any,
-        payment_method: 'PIX', // Corrigido para PIX
+        payment_method: 'PIX',
         status: 'pending'
       };
 
@@ -483,155 +342,62 @@ const Pagamento = () => {
         .single();
 
       if (orderError) {
-        console.error('Erro ao criar pedido:', orderError);
         throw new Error('Erro ao criar pedido');
       }
 
       const paymentRequestData = {
-        transaction_amount: total, // Mercado Pago espera valor em reais, não centavos
+        transaction_amount: total,
         description: `Pedido ${order.id}`,
         payment_method_id: 'pix',
         payer: {
           email: user?.email || '',
-          first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
-          last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
           identification: {
             type: 'CPF',
-            number: '11144477735', // CPF de teste válido do Mercado Pago
+            number: '11144477735',
           },
         },
         user_id: user?.id,
         order_id: order.id,
       };
 
-      console.log('=== CHAMANDO PROCESS-PAYMENT ===');
-      console.log('Environment:', envConfig.environment);
-      console.log('Payment data:', JSON.stringify({
-        ...paymentRequestData,
-        environment: envConfig.environment
-      }, null, 2));
-
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
-        body: {
-          ...paymentRequestData,
-          environment: envConfig.environment
-        }
+        body: paymentRequestData
       });
 
       if (paymentError) {
-        console.error('=== ERRO DETALHADO DA EDGE FUNCTION ===');
-        console.error('Error object:', paymentError);
-        console.error('Error name:', paymentError.name);
-        console.error('Error message:', paymentError.message);
-        console.error('Error context:', paymentError.context);
-        console.error('Full error JSON:', JSON.stringify(paymentError, null, 2));
-        
-        // Tentar capturar response body se disponível
-        if (paymentError.context && paymentError.context.body) {
-          console.error('Response body:', paymentError.context.body);
-        }
-        
-        let errorMessage = 'Erro ao processar pagamento PIX';
-        if (paymentError.message) {
-          errorMessage += `: ${paymentError.message}`;
-        }
-        
-        // Se é um erro 400, mostrar mensagem mais específica
-        if (paymentError.message && paymentError.message.includes('non-2xx status code')) {
-          errorMessage = 'Erro de configuração: Problema na comunicação com o Mercado Pago. Verifique os logs da edge function.';
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error('Erro ao processar pagamento PIX');
       }
 
-      // Verificar se a resposta contém erro do Mercado Pago
       if (paymentResult?.error) {
-        console.error('Erro do Mercado Pago no PIX:', paymentResult);
-        
         let mpErrorMessage = 'Erro do Mercado Pago no PIX';
-        
-        // Tratamento específico para diferentes tipos de erro
-        if (paymentResult.mp_error) {
-          const mpError = paymentResult.mp_error;
-          
-          if (mpError.message === 'internal_error') {
-            mpErrorMessage = 'Erro interno do Mercado Pago. Verifique suas credenciais ou tente novamente em alguns minutos.';
-          } else if (mpError.message && mpError.message.includes('not_found')) {
-            mpErrorMessage = 'Método de pagamento PIX não encontrado. Verifique as configurações da conta.';
-          } else if (mpError.message && mpError.message.includes('invalid')) {
-            mpErrorMessage = 'Dados inválidos para gerar PIX. Verifique as informações.';
-          } else if (mpError.message) {
-            mpErrorMessage += `: ${mpError.message}`;
-          }
-          
-          if (mpError.cause && Array.isArray(mpError.cause) && mpError.cause.length > 0) {
-            mpErrorMessage += ` - ${mpError.cause.map(c => c.description || c.code).join(', ')}`;
-          }
-        } else if (paymentResult.message) {
-          mpErrorMessage = paymentResult.message;
+        if (paymentResult.mp_error?.message) {
+          mpErrorMessage += `: ${paymentResult.mp_error.message}`;
         }
-        
+        if (paymentResult.mp_error?.cause) {
+          mpErrorMessage += ` - ${JSON.stringify(paymentResult.mp_error.cause)}`;
+        }
         throw new Error(mpErrorMessage);
       }
 
-      console.log('PIX criado:', paymentResult);
-      
-      // Processar resposta do pagamento PIX e salvar no banco
-      const paymentRecord = await processPaymentResponse(
-        paymentResult,
-        order.id,
-        user.id,
-        total,
-        'PIX'
-      );
-
-      // Verificar se há dados PIX válidos
-      const qrCode = paymentResult.point_of_interaction?.transaction_data?.qr_code;
-      const qrCodeBase64 = paymentResult.point_of_interaction?.transaction_data?.qr_code_base64;
-      
-      if (qrCode && qrCodeBase64) {
+      if (paymentResult?.pix_qr_code && paymentResult?.pix_qr_code_base64) {
         setPixData({
-          qrCode,
-          qrCodeBase64,
+          qrCode: paymentResult.pix_qr_code,
+          qrCodeBase64: paymentResult.pix_qr_code_base64,
           paymentId: paymentResult.id
         });
         
-        // Mostrar toast de sucesso
-        toast({
-          title: "QR Code PIX gerado!",
+        toast.success("QR Code PIX gerado!", {
           description: "Escaneie o código ou copie para efetuar o pagamento.",
         });
         
-        // Mostrar PIX e configurar timer (24 horas)
         setStep('pix-payment');
-        setPixExpired(false);
-        
-        // Calcular tempo restante para expiração
-        const expirationTime = new Date(paymentResult.date_of_expiration).getTime();
-        const now = new Date().getTime();
-        const timeRemaining = Math.max(0, expirationTime - now);
-        setPixTimer(Math.floor(timeRemaining / 1000));
-        
-        // Limpar carrinho após criar PIX
         clearCart();
-        
-        // Redirecionar para página de status após alguns segundos
-        setTimeout(() => {
-          navigate(`/status-pagamento/${paymentRecord.id}`);
-        }, 3000);
       } else {
-        console.error('Dados PIX incompletos:', paymentResult);
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
       }
     } catch (error: any) {
-      console.error('Erro FINAL no PIX:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error stack:', error.stack);
-      
-      toast({
-        title: "Erro no pagamento PIX",
+      toast.error("Erro no pagamento PIX", {
         description: error.message || "Não foi possível gerar o QR Code. Tente novamente.",
-        variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
@@ -643,8 +409,7 @@ const Pagamento = () => {
       try {
         await navigator.clipboard.writeText(pixData.qrCode);
         setCopied(true);
-        toast({
-          title: "Código PIX copiado!",
+        toast.success("Código PIX copiado!", {
           description: "Cole no seu app bancário para efetuar o pagamento.",
         });
         setTimeout(() => setCopied(false), 2000);
@@ -654,7 +419,6 @@ const Pagamento = () => {
     }
   };
 
-  // Tela PIX Payment com timer e expiração
   if (step === 'pix-payment' && pixData) {
     return (
       <div className="min-h-screen bg-background">
@@ -818,7 +582,6 @@ const Pagamento = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
@@ -833,9 +596,7 @@ const Pagamento = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Formulários */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Dados de Entrega */}
             {step === 'shipping' && (
               <Card>
                 <CardHeader>
@@ -952,15 +713,19 @@ const Pagamento = () => {
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full">
-                      Continuar para Pagamento
+                    <Button type="submit" className="w-full" disabled={isProcessing}>
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Validando...
+                        </>
+                      ) : 'Continuar para Pagamento'}
                     </Button>
                   </form>
                 </CardContent>
               </Card>
             )}
 
-            {/* Forma de Pagamento */}
             {step === 'payment' && (
               <Card>
                 <CardHeader>
@@ -970,50 +735,6 @@ const Pagamento = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Debug button to test MP connection */}
-                  <div className="border rounded-lg p-4 bg-muted/50">
-                    <h4 className="font-semibold mb-2">🔧 Diagnóstico</h4>
-                    <div className="space-y-2">
-                      <Button 
-                        onClick={async () => {
-                          try {
-                            console.log('Testing MP config...');
-                            const { data, error } = await supabase.functions.invoke('get-mp-config', {
-                              body: { environment: envConfig.environment }
-                            });
-                            
-                            if (error) {
-                              toast({
-                                title: "❌ Erro de Configuração",
-                                description: `Erro ao obter configurações: ${error.message}`,
-                                variant: "destructive"
-                              });
-                              return;
-                            }
-                            
-                            toast({
-                              title: "✅ Configuração OK",
-                              description: `Ambiente: ${envConfig.environment} | Chave: ${data.publicKey.substring(0, 15)}...`,
-                            });
-                          } catch (error) {
-                            console.error('Config test error:', error);
-                            toast({
-                              title: "❌ Erro no teste",
-                              description: String(error),
-                              variant: "destructive"
-                            });
-                          }
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                      >
-                        Testar Configuração MP
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Seleção do método */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div 
                       className={`border rounded-lg p-4 cursor-pointer transition-colors ${
@@ -1046,7 +767,6 @@ const Pagamento = () => {
                     </div>
                   </div>
 
-                  {/* Formulário do cartão */}
                   {paymentData.method === 'credit' && (
                     <div className="space-y-4 border-t pt-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1159,7 +879,6 @@ const Pagamento = () => {
             )}
           </div>
 
-          {/* Resumo do pedido */}
           <div className="space-y-6">
             <Card>
               <CardHeader>

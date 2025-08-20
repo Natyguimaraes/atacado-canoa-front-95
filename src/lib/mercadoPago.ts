@@ -1,68 +1,31 @@
-// Utility functions for Mercado Pago environment detection and configuration
-
+// src/lib/mercadoPago.ts
 /**
- * Checks if the current environment is production based on the hostname
+ * Utility functions for Mercado Pago environment detection and configuration.
+ * Public keys are loaded from environment variables.
  */
-export const isProduction = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  
-  const hostname = window.location.hostname;
-  
-  // Check for production domains
-  const productionDomains = [
-    'atacadocanoa.com',
-    'www.atacadocanoa.com',
-    'atacado-canoa-loja.lovable.app',
-    'atacado-canoa-front-95.vercel.app',
-    'http://localhost:8080',
-    
-    // Domínio de produção atual
-    // Add other production domains here
-  ];
-  
-  return productionDomains.some(domain => hostname.includes(domain));
-};
 
-/**
- * Gets the appropriate Mercado Pago public key based on environment
- */
-export const getMercadoPagoPublicKey = async (): Promise<string> => {
-  const { supabase } = await import('@/integrations/supabase/client');
-  
-  try {
-    if (isProduction()) {
-      // Get production key from Supabase secrets
-      const { data, error } = await supabase.functions.invoke('get-mp-config', {
-        body: { environment: 'production' }
-      });
-      
-      if (error) throw error;
-      return data.publicKey;
-    } else {
-      // Get test key from Supabase secrets  
-      const { data, error } = await supabase.functions.invoke('get-mp-config', {
-        body: { environment: 'test' }
-      });
-      
-      if (error) throw error;
-      return data.publicKey;
-    }
-  } catch (error) {
-    console.error('Error getting Mercado Pago public key:', error);
-    // Fallback to hardcoded test key for development
-    return 'TEST-dfc36fd1-447c-4c28-ba97-740e7d046799';
-  }
-};
+interface EnvironmentConfig {
+  environment: 'production' | 'test';
+  isProduction: boolean;
+  isTest: boolean;
+  publicKey: string;
+  accessToken: string;
+}
 
-/**
- * Gets environment-specific configuration
- */
-export const getEnvironmentConfig = () => {
-  const isProd = isProduction();
+export const getEnvironmentConfig = (): EnvironmentConfig => {
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   
+  // As public keys são carregadas do Vercel, e os segredos do Edge Function
+  const publicTestKey = process.env.NEXT_PUBLIC_MERCADOPAGO_TEST_KEY || '';
+  const publicProductionKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PRODUCTION_KEY || '';
+  const accessTestToken = process.env.MERCADOPAGO_TEST_ACCESS_TOKEN || '';
+  const accessProductionToken = process.env.MERCADOPAGO_PRODUCTION_ACCESS_TOKEN || '';
+
   return {
     environment: isProd ? 'production' : 'test',
     isProduction: isProd,
-    isDevelopment: !isProd,
+    isTest: !isProd,
+    publicKey: isProd ? publicProductionKey : publicTestKey,
+    accessToken: isProd ? accessProductionToken : accessTestToken,
   };
 };
