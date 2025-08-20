@@ -12,6 +12,8 @@ import { toast } from 'sonner';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { getEnvironmentConfig } from '../lib/mercadoPago';
+import { useToast } from '@/hooks/use-toast';
+
 
 const envConfig = getEnvironmentConfig();
 initMercadoPago(envConfig.publicKey);
