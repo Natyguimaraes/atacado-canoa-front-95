@@ -13,7 +13,9 @@ export const isProduction = (): boolean => {
     'atacadocanoa.com',
     'www.atacadocanoa.com',
     'atacado-canoa-loja.lovable.app',
-    'atacado-canoa-front-95.vercel.app'
+    'atacado-canoa-front-95.vercel.app',
+    'http://localhost:8080',
+    
     // Domínio de produção atual
     // Add other production domains here
   ];
