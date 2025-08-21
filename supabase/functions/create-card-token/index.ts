@@ -13,9 +13,40 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== CREATE CARD TOKEN v3 ===');
+    console.log('=== CREATE CARD TOKEN v4 ===');
     
     const data = await req.json();
+    console.log('Raw request data:', JSON.stringify(data, null, 2));
+    
+    // Validações básicas dos dados
+    if (!data.card_number) {
+      console.log('ERROR: Missing card_number');
+      return new Response(JSON.stringify({ 
+        error: 'Missing card_number' 
+      }), { status: 400, headers });
+    }
+    
+    if (!data.security_code) {
+      console.log('ERROR: Missing security_code');
+      return new Response(JSON.stringify({ 
+        error: 'Missing security_code' 
+      }), { status: 400, headers });
+    }
+    
+    if (!data.expiration_month || !data.expiration_year) {
+      console.log('ERROR: Missing expiration data');
+      return new Response(JSON.stringify({ 
+        error: 'Missing expiration_month or expiration_year' 
+      }), { status: 400, headers });
+    }
+    
+    if (!data.cardholder || !data.cardholder.name || !data.cardholder.identification) {
+      console.log('ERROR: Missing cardholder data');
+      return new Response(JSON.stringify({ 
+        error: 'Missing cardholder data' 
+      }), { status: 400, headers });
+    }
+    
     console.log('Card data received:', {
       has_card_number: !!data.card_number,
       has_security_code: !!data.security_code,
