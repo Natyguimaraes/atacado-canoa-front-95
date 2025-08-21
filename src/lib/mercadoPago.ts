@@ -13,19 +13,25 @@ interface EnvironmentConfig {
 }
 
 export const getEnvironmentConfig = (): EnvironmentConfig => {
-  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+  // Forçar sempre test environment até que as credenciais de produção sejam configuradas
+  const isProd = false;
   
-  // As public keys são carregadas do Vercel, e os segredos do Edge Function
-  const publicTestKey = process.env.NEXT_PUBLIC_MERCADOPAGO_TEST_KEY || '';
-  const publicProductionKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PRODUCTION_KEY || '';
-  const accessTestToken = process.env.MERCADOPAGO_TEST_ACCESS_TOKEN || '';
-  const accessProductionToken = process.env.MERCADOPAGO_PRODUCTION_ACCESS_TOKEN || '';
+  // As public keys são carregadas das variáveis do projeto
+  const publicTestKey = import.meta.env.VITE_MERCADOPAGO_TEST_KEY || '';
+  const publicProductionKey = import.meta.env.VITE_MERCADOPAGO_PRODUCTION_KEY || '';
+  
+  console.log('Environment config:', {
+    isProd,
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
+    publicTestKey: publicTestKey ? publicTestKey.substring(0, 10) + '...' : 'missing',
+    publicProductionKey: publicProductionKey ? publicProductionKey.substring(0, 10) + '...' : 'missing'
+  });
 
   return {
-    environment: isProd ? 'production' : 'test',
-    isProduction: isProd,
-    isTest: !isProd,
-    publicKey: isProd ? publicProductionKey : publicTestKey,
-    accessToken: isProd ? accessProductionToken : accessTestToken,
+    environment: 'test', // Sempre test por enquanto
+    isProduction: false,
+    isTest: true,
+    publicKey: publicTestKey, // Sempre usar test key
+    accessToken: '', // Não usado no frontend
   };
 };
