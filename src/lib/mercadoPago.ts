@@ -13,8 +13,10 @@ interface EnvironmentConfig {
 }
 
 export const getEnvironmentConfig = (): EnvironmentConfig => {
-  // Forçar sempre test environment até que as credenciais de produção sejam configuradas
-  const isProd = false;
+  // Detectar automaticamente o ambiente baseado no hostname
+  const isProd = typeof window !== 'undefined' && 
+    (window.location.hostname.includes('lovable.app') || 
+     window.location.hostname.includes('atacadocanoa.com'));
   
   // As public keys são carregadas das variáveis do projeto
   const publicTestKey = import.meta.env.VITE_MERCADOPAGO_TEST_KEY || '';
@@ -28,10 +30,10 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
   });
 
   return {
-    environment: 'test', // Sempre test por enquanto
-    isProduction: false,
-    isTest: true,
-    publicKey: publicTestKey, // Sempre usar test key
+    environment: isProd ? 'production' : 'test',
+    isProduction: isProd,
+    isTest: !isProd,
+    publicKey: isProd ? publicProductionKey : publicTestKey,
     accessToken: '', // Não usado no frontend
   };
 };

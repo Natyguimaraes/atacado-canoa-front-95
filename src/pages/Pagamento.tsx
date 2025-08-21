@@ -12,8 +12,11 @@ import { useToast } from '@/hooks/use-toast';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
-// Inicializar MercadoPago com a chave pública
-initMercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
+// Inicializar MercadoPago com a chave pública baseada no ambiente
+const isProduction = window.location.hostname.includes('lovable.app') || 
+                     window.location.hostname.includes('atacadocanoa.com');
+const mpKey = isProduction ? 'APP_USR-edb5a218-3bc1-496e-b3d9-24d33475a5b5' : 'TEST-dfc36fd1-447c-4c28-ba97-740e7d046799';
+initMercadoPago(mpKey);
 
 interface ShippingData {
   fullName: string;
@@ -130,7 +133,10 @@ const Pagamento = () => {
     script.src = 'https://sdk.mercadopago.com/js/v2';
     script.async = true;
     script.onload = () => {
-      const mp = new (window as any).MercadoPago('TEST-dfc36fd1-447c-4c28-ba97-740e7d046799');
+      const isProduction = window.location.hostname.includes('lovable.app') || 
+                           window.location.hostname.includes('atacadocanoa.com');
+      const mpKey = isProduction ? 'APP_USR-edb5a218-3bc1-496e-b3d9-24d33475a5b5' : 'TEST-dfc36fd1-447c-4c28-ba97-740e7d046799';
+      const mp = new (window as any).MercadoPago(mpKey);
       setMercadoPago(mp);
     };
     document.body.appendChild(script);
@@ -244,6 +250,10 @@ const Pagamento = () => {
         throw new Error('Data de validade inválida. Use o formato MM/AA');
       }
 
+      // Detectar ambiente baseado no hostname  
+      const environment = (window.location.hostname.includes('lovable.app') || 
+                          window.location.hostname.includes('atacadocanoa.com')) ? 'production' : 'test';
+
       const tokenRequestData = {
         card_number: cardData.cardNumber.replace(/\s/g, ''),
         cardholder: {
@@ -255,7 +265,8 @@ const Pagamento = () => {
         },
         expiration_month: parseInt(month),
         expiration_year: parseInt('20' + year),
-        security_code: cardData.cvv
+        security_code: cardData.cvv,
+        environment: environment
       };
 
       console.log('Dados preparados para token:', {
@@ -346,6 +357,7 @@ const Pagamento = () => {
         },
         user_id: user?.id,
         order_id: order.id,
+        environment: environment // Usar o mesmo ambiente
       };
 
       console.log('Processando pagamento com dados:', {
@@ -434,6 +446,10 @@ const Pagamento = () => {
         throw new Error('Erro ao criar pedido');
       }
 
+      // Detectar ambiente baseado no hostname  
+      const environment = (window.location.hostname.includes('lovable.app') || 
+                          window.location.hostname.includes('atacadocanoa.com')) ? 'production' : 'test';
+
       const paymentRequestData = {
         transaction_amount: Math.round(total * 100), // Converter para centavos para o Mercado Pago
         description: `Pedido ${order.id}`,
@@ -449,6 +465,7 @@ const Pagamento = () => {
         },
         user_id: user?.id,
         order_id: order.id,
+        environment: environment
       };
 
       console.log('Processando pagamento com dados:', { ...paymentRequestData });

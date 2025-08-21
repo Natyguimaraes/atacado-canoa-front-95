@@ -25,9 +25,8 @@ serve(async (req) => {
       environment: data.environment
     });
 
-    // Get public key based on environment - sempre usar test por enquanto
-    // até que as credenciais de produção sejam configuradas corretamente
-    const isProduction = false; // data.environment === 'production';
+    // Get public key based on environment
+    const isProduction = data.environment === 'production';
     const publicKey = isProduction 
       ? Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_PROD')
       : Deno.env.get('MERCADO_PAGO_PUBLIC_KEY');
