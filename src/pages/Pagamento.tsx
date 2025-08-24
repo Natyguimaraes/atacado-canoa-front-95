@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
-// Inicializar MercadoPago com a chave pública baseada no ambiente
+// Inicializar MercadoPago com a chave pública
 const isProduction = window.location.hostname.includes('lovable.app') || 
                      window.location.hostname.includes('atacadocanoa.com');
 const mpKey = isProduction ? 'APP_USR-edb5a218-3bc1-496e-b3d9-24d33475a5b5' : 'TEST-dfc36fd1-447c-4c28-ba97-740e7d046799';
@@ -598,7 +598,6 @@ const Pagamento = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
@@ -613,9 +612,7 @@ const Pagamento = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Formulários */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Dados de Entrega */}
             {step === 'shipping' && (
               <Card>
                 <CardHeader>
