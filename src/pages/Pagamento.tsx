@@ -147,6 +147,7 @@ const Pagamento = () => {
       }
     };
   }, []);
+  
 
   useEffect(() => {
     if (!isAuthenticated) {
