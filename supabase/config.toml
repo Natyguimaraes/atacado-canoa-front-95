@@ -26,7 +26,7 @@ enable_confirmations = false
 verify_jwt = true
 
 [functions.create-card-token]
-verify_jwt = false
+verify_jwt = true
 
 [functions.mercado-pago-webhook]
 verify_jwt = false

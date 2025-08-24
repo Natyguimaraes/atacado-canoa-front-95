@@ -13,27 +13,17 @@ interface EnvironmentConfig {
 }
 
 export const getEnvironmentConfig = (): EnvironmentConfig => {
-  // Detectar automaticamente o ambiente baseado no hostname
-  const isProd = typeof window !== 'undefined' && 
-    (window.location.hostname.includes('lovable.app') || 
-     window.location.hostname.includes('atacadocanoa.com'));
+  // Usar sempre test para desenvolvimento
+  const isProd = false;
   
-  // As public keys são carregadas das variáveis do projeto
-  const publicTestKey = import.meta.env.VITE_MERCADOPAGO_TEST_KEY || '';
-  const publicProductionKey = import.meta.env.VITE_MERCADOPAGO_PRODUCTION_KEY || '';
+  // Usar sempre a public key de teste
+  const publicTestKey = 'TEST-710ad6a1-8e41-44a1-9979-90e213360bc8';
   
-  console.log('Environment config:', {
-    isProd,
-    hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
-    publicTestKey: publicTestKey ? publicTestKey.substring(0, 10) + '...' : 'missing',
-    publicProductionKey: publicProductionKey ? publicProductionKey.substring(0, 10) + '...' : 'missing'
-  });
-
   return {
-    environment: isProd ? 'production' : 'test',
-    isProduction: isProd,
-    isTest: !isProd,
-    publicKey: isProd ? publicProductionKey : publicTestKey,
+    environment: 'test',
+    isProduction: false,
+    isTest: true,
+    publicKey: publicTestKey,
     accessToken: '', // Não usado no frontend
   };
 };

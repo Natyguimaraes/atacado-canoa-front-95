@@ -26,24 +26,20 @@ serve(async (req) => {
     });
 
     // Get access token based on environment
-    const isProduction = data.environment === 'production';
-    const accessToken = isProduction 
-      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
-      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
     
-    console.log('Environment:', data.environment);
-    console.log('Using production credentials:', isProduction);
+    console.log('Environment: test (fixed)');
+    console.log('Using production credentials: false');
     console.log('Access token exists:', !!accessToken);
     console.log('Access token prefix:', accessToken ? accessToken.substring(0, 20) + '...' : 'NONE');
     
     if (!accessToken) {
-      console.log('ERROR: Access token not found for environment:', data.environment);
+      console.log('ERROR: Access token not found');
       console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(key => key.includes('MERCADO')));
       return new Response(JSON.stringify({ 
         error: 'Access token not configured',
-        environment: data.environment,
-        isProduction: isProduction,
-        debug: 'No access token found for the specified environment'
+        environment: 'test',
+        debug: 'No access token found'
       }), { status: 400, headers });
     }
 

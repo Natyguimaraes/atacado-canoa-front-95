@@ -266,7 +266,6 @@ const Pagamento = () => {
         expiration_month: parseInt(month),
         expiration_year: parseInt('20' + year),
         security_code: cardData.cvv,
-        environment: environment
       };
 
       console.log('Dados preparados para token:', {
@@ -357,7 +356,6 @@ const Pagamento = () => {
         },
         user_id: user?.id,
         order_id: order.id,
-        environment: environment // Usar o mesmo ambiente
       };
 
       console.log('Processando pagamento com dados:', {
@@ -465,7 +463,6 @@ const Pagamento = () => {
         },
         user_id: user?.id,
         order_id: order.id,
-        environment: environment
       };
 
       console.log('Processando pagamento com dados:', { ...paymentRequestData });
