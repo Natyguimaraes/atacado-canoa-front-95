@@ -59,7 +59,8 @@ interface PixData {
 const Pagamento = () => {
   const { user, isAuthenticated } = useAuth();
   const { items, totalPrice, clearCart } = useCart();
-  const total = totalPrice;
+  const [orderTotal, setOrderTotal] = useState<number>(totalPrice);
+  const total = orderTotal;
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -164,11 +165,16 @@ const Pagamento = () => {
       return;
     }
 
+    // Salvar o total atual quando há itens no carrinho
+    if (items.length > 0 && totalPrice > 0) {
+      setOrderTotal(totalPrice);
+    }
+
     if (items.length === 0 && step !== 'pix-payment') {
       navigate('/carrinho');
       return;
     }
-  }, [isAuthenticated, items.length, navigate, step]);
+  }, [isAuthenticated, items.length, navigate, step, totalPrice]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -407,7 +413,7 @@ const Pagamento = () => {
         });
         
         setStep('pix-payment');
-        clearCart();
+        // Não limpar o carrinho imediatamente, apenas após pagamento aprovado
       } else {
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
       }
