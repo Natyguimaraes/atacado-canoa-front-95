@@ -326,13 +326,17 @@ const Pagamento = () => {
 
       if (paymentResult?.status === 'approved') {
         toast.success("Pagamento aprovado!");
-        navigate('/status-pagamento', { state: { success: true } });
+        // Usar external_id (ID do MercadoPago) para status
+        const paymentId = paymentResult.external_id || paymentResult.id;
+        navigate(`/status-pagamento/${paymentId}`);
         clearCart();
       } else {
         toast.error("Pagamento rejeitado!", {
           description: paymentResult?.status_detail || "Por favor, verifique os dados do cartão."
         });
-        navigate('/status-pagamento', { state: { success: false, reason: paymentResult?.status_detail } });
+        // Usar external_id (ID do MercadoPago) para status
+        const paymentId = paymentResult.external_id || paymentResult.id;
+        navigate(`/status-pagamento/${paymentId}`);
       }
       
     } catch (error: any) {
@@ -413,6 +417,8 @@ const Pagamento = () => {
         });
         
         setStep('pix-payment');
+        // Salvar o ID do pagamento para uso posterior
+        sessionStorage.setItem('current_payment_id', paymentResult.external_id || paymentResult.id);
         // Não limpar o carrinho imediatamente, apenas após pagamento aprovado
       } else {
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
@@ -584,14 +590,19 @@ const Pagamento = () => {
                   <Button 
                     className="flex-1"
                     onClick={() => {
-                      toast({
-                        title: "Aguardando pagamento",
-                        description: "Assim que o pagamento for confirmado, você será notificado.",
-                      });
-                      navigate('/pedidos');
+                      const paymentId = sessionStorage.getItem('current_payment_id') || pixData?.paymentId;
+                      if (paymentId) {
+                        navigate(`/status-pagamento/${paymentId}`);
+                      } else {
+                        toast({
+                          title: "Aguardando pagamento",
+                          description: "Assim que o pagamento for confirmado, você será notificado.",
+                        });
+                        navigate('/pedidos');
+                      }
                     }}
                   >
-                    Ver Meus Pedidos
+                    Ver Status do Pagamento
                   </Button>
                 </div>
               </CardContent>
@@ -816,7 +827,7 @@ const Pagamento = () => {
                             onChange={(e) => {
                               const value = e.target.value.replace(/\D/g, '');
                               const formatted = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-                              setCardData(prev => ({ ...prev, identificationNumber: formatted }));
+                              setCardData(prev => ({ ...prev, identificationNumber: formatted, rawIdentificationNumber: value }));
                             }}
                             placeholder="000.000.000-00"
                             maxLength={14}
@@ -839,7 +850,7 @@ const Pagamento = () => {
                           <Input
                             id="cvv"
                             value={cardData.cvv || ''}
-                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, '') }))}
+                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, ''), rawCvv: e.target.value.replace(/\D/g, '') }))}
                             placeholder="123"
                             maxLength={4}
                             required
