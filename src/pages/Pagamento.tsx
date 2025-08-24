@@ -33,11 +33,16 @@ interface ShippingData {
 
 interface CardData {
   cardNumber: string;
+  rawCardNumber: string;
   cardholderName: string;
   expiryDate: string;
+  expiryMonth?: string;
+  expiryYear?: string;
   cvv: string;
+  rawCvv: string;
   identificationType: string;
   identificationNumber: string;
+  rawIdentificationNumber: string;
 }
 
 interface PaymentData {
@@ -80,11 +85,16 @@ const Pagamento = () => {
 
   const [cardData, setCardData] = useState<CardData>({
     cardNumber: '',
+    rawCardNumber: '',
     cardholderName: '',
     expiryDate: '',
+    expiryMonth: '',
+    expiryYear: '',
     cvv: '',
+    rawCvv: '',
     identificationType: 'CPF',
     identificationNumber: '',
+    rawIdentificationNumber: '',
   });
 
   const [paymentData, setPaymentData] = useState<PaymentData>({
@@ -148,7 +158,6 @@ const Pagamento = () => {
     };
   }, []);
   
-
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -199,9 +208,9 @@ const Pagamento = () => {
   };
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
-    setCardData(prev => ({ ...prev, cardNumber: value }));
+    const rawValue = e.target.value.replace(/\D/g, '');
+    const formattedValue = rawValue.replace(/(\d{4})(?=\d)/g, '$1 ');
+    setCardData(prev => ({ ...prev, cardNumber: formattedValue, rawCardNumber: rawValue }));
   };
 
   const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,7 +218,13 @@ const Pagamento = () => {
     if (value.length >= 2) {
       value = value.replace(/(\d{2})(\d)/, '$1/$2');
     }
-    setCardData(prev => ({ ...prev, expiryDate: value }));
+    const [month, year] = value.split('/');
+    setCardData(prev => ({ 
+      ...prev, 
+      expiryDate: value,
+      expiryMonth: month,
+      expiryYear: year
+    }));
   };
 
   const handleShippingSubmit = (e: React.FormEvent) => {
@@ -217,10 +232,8 @@ const Pagamento = () => {
     
     if (!shippingData.fullName || !shippingData.email || !shippingData.zipCode || 
         !shippingData.address || !shippingData.number || !shippingData.city) {
-      toast({
-        title: "Campos obrigatórios",
+      toast.error("Campos obrigatórios", {
         description: "Preencha todos os campos obrigatórios.",
-        variant: "destructive",
       });
       return;
     }
@@ -231,94 +244,36 @@ const Pagamento = () => {
   const handleCardPayment = async () => {
     try {
       setIsProcessing(true);
-      console.log('Iniciando pagamento com cartão', { cardData });
       
-      console.log('Validando dados do cartão:', { 
-        cardNumber: !!cardData.cardNumber, 
-        cardholderName: !!cardData.cardholderName, 
-        expiryDate: !!cardData.expiryDate, 
-        cvv: !!cardData.cvv,
-        identificationNumber: !!cardData.identificationNumber
-      });
-
-      if (!cardData.cardNumber || !cardData.cardholderName || !cardData.expiryDate || !cardData.cvv || !cardData.identificationNumber) {
-        console.log('Erro na validação - campos faltando:', { cardData });
+      if (!cardData.rawCardNumber || !cardData.cardholderName || !cardData.expiryMonth || !cardData.expiryYear || !cardData.rawCvv || !cardData.rawIdentificationNumber) {
         throw new Error('Preencha todos os campos do cartão, incluindo o CPF');
       }
 
-      const [month, year] = cardData.expiryDate.split('/');
-      if (!month || !year || month.length !== 2 || year.length !== 2) {
-        throw new Error('Data de validade inválida. Use o formato MM/AA');
-      }
+      const tokenResponse: any = await new Promise((resolve, reject) => {
+        if (!mercadoPago) {
+          reject(new Error('Mercado Pago SDK não inicializado.'));
+          return;
+        }
 
-      // Detectar ambiente baseado no hostname  
-      const environment = (window.location.hostname.includes('lovable.app') || 
-                          window.location.hostname.includes('atacadocanoa.com')) ? 'production' : 'test';
+        const tokenizationData = {
+          card_number: cardData.rawCardNumber,
+          expiration_month: parseInt(cardData.expiryMonth!),
+          expiration_year: parseInt('20' + cardData.expiryYear!),
+          security_code: cardData.rawCvv,
+          cardholder_name: cardData.cardholderName,
+          identification_type: cardData.identificationType,
+          identification_number: cardData.rawIdentificationNumber,
+        };
 
-      const tokenRequestData = {
-        card_number: cardData.cardNumber.replace(/\s/g, ''),
-        cardholder: {
-          name: cardData.cardholderName.toUpperCase(),
-          identification: {
-            type: cardData.identificationType || 'CPF',
-            number: cardData.identificationNumber.replace(/\D/g, '')
+        (mercadoPago as any).createCardToken(tokenizationData, (status: number, response: any) => {
+          if (status >= 200 && status < 300) {
+            resolve(response);
+          } else {
+            reject(new Error(`Erro na tokenização do cartão: ${response.message || 'Erro desconhecido'}`));
           }
-        },
-        expiration_month: parseInt(month),
-        expiration_year: parseInt('20' + year),
-        security_code: cardData.cvv,
-      };
-
-      console.log('Dados preparados para token:', {
-        ...tokenRequestData,
-        card_number: '**** **** **** ' + tokenRequestData.card_number.slice(-4),
-        security_code: '***'
+        });
       });
-
-      console.log('Chamando create-card-token...');
-      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-card-token', {
-        body: tokenRequestData
-      });
-
-      if (tokenError) {
-        console.error('Erro COMPLETO ao criar token:', tokenError);
-        console.error('Token error details:', JSON.stringify(tokenError, null, 2));
-        
-        let errorMessage = 'Erro ao processar dados do cartão';
-        if (tokenError.message) {
-          errorMessage += `: ${tokenError.message}`;
-        }
-        if (tokenError.details) {
-          errorMessage += ` - ${JSON.stringify(tokenError.details)}`;
-        }
-        
-        throw new Error(errorMessage);
-      }
       
-      if (tokenData?.error) {
-        console.error('Erro do Mercado Pago na criação do token:', tokenData);
-        
-        let mpErrorMessage = 'Erro do Mercado Pago';
-        if (tokenData.mp_error) {
-          if (tokenData.mp_error.message) {
-            mpErrorMessage += `: ${tokenData.mp_error.message}`;
-          }
-          if (tokenData.mp_error.cause) {
-            mpErrorMessage += ` - ${JSON.stringify(tokenData.mp_error.cause)}`;
-          }
-        }
-        
-        throw new Error(mpErrorMessage);
-      }
-      
-      if (!tokenData?.id) {
-        console.error('Token data recebido:', tokenData);
-        throw new Error('Token do cartão não foi criado corretamente');
-      }
-
-      console.log('Token criado:', tokenData.id);
-
-      console.log('Criando pedido...');
       const orderData = {
         user_id: user?.id,
         items: items as any,
@@ -327,110 +282,72 @@ const Pagamento = () => {
         payment_method: 'CARD',
         status: 'pending'
       };
-
+      
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert(orderData)
         .select()
         .single();
-
+      
       if (orderError) {
-        console.error('Erro ao criar pedido:', orderError);
         throw new Error('Erro ao criar pedido');
       }
-
-      // Processar pagamento
+      
       const paymentRequestData = {
-        transaction_amount: Math.round(total * 100), // Converter para centavos
+        transaction_amount: total,
         description: `Pedido ${order.id}`,
-        payment_method_id: tokenData.payment_method_id,
-        token: tokenData.id,
+        payment_method_id: tokenResponse.payment_method_id,
+        token: tokenResponse.id,
         installments: paymentData.installments || 1,
         payer: {
           email: user?.email || '',
-          first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
-          last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
           identification: {
             type: cardData.identificationType || 'CPF',
-            number: cardData.identificationNumber.replace(/\D/g, '') || '11144477735',
+            number: cardData.rawIdentificationNumber
           },
         },
         user_id: user?.id,
-        order_id: order.id,
+        order_id: order.id
       };
-
-      console.log('Processando pagamento com dados:', {
-        ...paymentRequestData,
-        token: '***TOKEN***'
-      });
-
-      console.log('Chamando process-payment...');
-
+      
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
         body: paymentRequestData
       });
-
+      
       if (paymentError) {
-        console.error('Erro COMPLETO no pagamento:', paymentError);
-        console.error('Payment error details:', JSON.stringify(paymentError, null, 2));
-        
-        let errorMessage = 'Erro ao processar pagamento';
-        if (paymentError.message) {
-          errorMessage += `: ${paymentError.message}`;
-        }
-        if (paymentError.details) {
-          errorMessage += ` - ${JSON.stringify(paymentError.details)}`;
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error('Erro ao processar o pagamento do cartão');
       }
 
-      console.log('Pagamento processado:', paymentResult);
-      
-      // Limpar carrinho
-      clearCart();
-      
-      if (paymentResult.status === 'approved') {
-        toast({
-          title: "Pagamento aprovado!",
-          description: "Seu pedido foi processado com sucesso.",
-        });
-        navigate('/status-pagamento', { state: { paymentData: paymentResult, success: true } });
+      if (paymentResult?.status === 'approved') {
+        toast.success("Pagamento aprovado!");
+        navigate('/status-pagamento', { state: { success: true } });
+        clearCart();
       } else {
-        toast({
-          title: "Pagamento em processamento",
-          description: "Aguarde a confirmação do pagamento.",
-          variant: "default",
+        toast.error("Pagamento rejeitado!", {
+          description: paymentResult?.status_detail || "Por favor, verifique os dados do cartão."
         });
-        navigate('/status-pagamento', { state: { paymentData: paymentResult, success: false } });
+        navigate('/status-pagamento', { state: { success: false, reason: paymentResult?.status_detail } });
       }
-    } catch (error: any) {
-      console.error('Erro FINAL no cartão:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error stack:', error.stack);
       
-      toast({
-        title: "Erro no pagamento",
+    } catch (error: any) {
+      toast.error("Erro no pagamento", {
         description: error.message || "Não foi possível processar o pagamento. Tente novamente.",
-        variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
     }
   };
-
+  
   const handlePixPayment = async () => {
     try {
       setIsProcessing(true);
-      console.log('Iniciando pagamento PIX');
       
-      // Criar pedido primeiro
       const orderData = {
         user_id: user?.id,
         items: items as any,
         total_amount: total,
         shipping_data: shippingData as any,
-        payment_method: 'PIX', // Corrigido para PIX
+        payment_method: 'PIX',
         status: 'pending'
       };
 
@@ -441,105 +358,62 @@ const Pagamento = () => {
         .single();
 
       if (orderError) {
-        console.error('Erro ao criar pedido:', orderError);
         throw new Error('Erro ao criar pedido');
       }
 
-      // Detectar ambiente baseado no hostname  
-      const environment = (window.location.hostname.includes('lovable.app') || 
-                          window.location.hostname.includes('atacadocanoa.com')) ? 'production' : 'test';
-
       const paymentRequestData = {
-        transaction_amount: Math.round(total * 100), // Converter para centavos para o Mercado Pago
+        transaction_amount: total,
         description: `Pedido ${order.id}`,
         payment_method_id: 'pix',
         payer: {
           email: user?.email || '',
-          first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
-          last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
           identification: {
             type: 'CPF',
-            number: '11144477735', // CPF de teste válido do Mercado Pago
+            number: '11144477735',
           },
         },
         user_id: user?.id,
         order_id: order.id,
       };
 
-      console.log('Processando pagamento com dados:', { ...paymentRequestData });
-      console.log('Chamando process-payment...');
-
       const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
         body: paymentRequestData
       });
 
       if (paymentError) {
-        console.error('Erro COMPLETO no PIX:', paymentError);
-        console.error('PIX error details:', JSON.stringify(paymentError, null, 2));
-        
-        let errorMessage = 'Erro ao processar pagamento PIX';
-        if (paymentError.message) {
-          errorMessage += `: ${paymentError.message}`;
-        }
-        if (paymentError.details) {
-          errorMessage += ` - ${JSON.stringify(paymentError.details)}`;
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error('Erro ao processar pagamento PIX');
       }
 
-      // Verificar se a resposta contém erro do Mercado Pago
       if (paymentResult?.error) {
-        console.error('Erro do Mercado Pago no PIX:', paymentResult);
-        
         let mpErrorMessage = 'Erro do Mercado Pago no PIX';
-        if (paymentResult.mp_error) {
-          if (paymentResult.mp_error.message) {
-            mpErrorMessage += `: ${paymentResult.mp_error.message}`;
-          }
-          if (paymentResult.mp_error.cause) {
-            mpErrorMessage += ` - ${JSON.stringify(paymentResult.mp_error.cause)}`;
-          }
+        if (paymentResult.mp_error?.message) {
+          mpErrorMessage += `: ${paymentResult.mp_error.message}`;
         }
-        
+        if (paymentResult.mp_error?.cause) {
+          mpErrorMessage += ` - ${JSON.stringify(paymentResult.mp_error.cause)}`;
+        }
         throw new Error(mpErrorMessage);
       }
 
-      console.log('PIX criado:', paymentResult);
-      
-      if (paymentResult.pix_qr_code && paymentResult.pix_qr_code_base64) {
+      if (paymentResult?.pix_qr_code && paymentResult?.pix_qr_code_base64) {
         setPixData({
           qrCode: paymentResult.pix_qr_code,
           qrCodeBase64: paymentResult.pix_qr_code_base64,
           paymentId: paymentResult.id
         });
         
-        // Mostrar toast de sucesso
-        toast({
-          title: "QR Code PIX gerado!",
+        toast.success("QR Code PIX gerado!", {
           description: "Escaneie o código ou copie para efetuar o pagamento.",
         });
         
-        // Mostrar PIX e configurar timer
         setStep('pix-payment');
-        setPixExpired(false);
-        setPixTimer(600); // 10 minutos
-        
-        // NÃO limpar carrinho até o pagamento ser confirmado
-        // O carrinho será limpo apenas quando o pagamento for confirmado
+        clearCart();
       } else {
-        console.error('Dados PIX incompletos:', paymentResult);
         throw new Error('Erro ao gerar QR Code PIX - dados incompletos');
       }
     } catch (error: any) {
-      console.error('Erro FINAL no PIX:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error stack:', error.stack);
-      
-      toast({
-        title: "Erro no pagamento PIX",
+      toast.error("Erro no pagamento PIX", {
         description: error.message || "Não foi possível gerar o QR Code. Tente novamente.",
-        variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
@@ -551,8 +425,7 @@ const Pagamento = () => {
       try {
         await navigator.clipboard.writeText(pixData.qrCode);
         setCopied(true);
-        toast({
-          title: "Código PIX copiado!",
+        toast.success("Código PIX copiado!", {
           description: "Cole no seu app bancário para efetuar o pagamento.",
         });
         setTimeout(() => setCopied(false), 2000);
@@ -705,21 +578,14 @@ const Pagamento = () => {
                   <Button 
                     className="flex-1"
                     onClick={() => {
-                      navigate('/status-pagamento', { 
-                        state: { 
-                          paymentData: { 
-                            id: pixData.paymentId, 
-                            status: 'pending',
-                            payment_method_id: 'pix',
-                            pix_qr_code: pixData.qrCode,
-                            pix_qr_code_base64: pixData.qrCodeBase64
-                          }, 
-                          success: false 
-                        } 
+                      toast({
+                        title: "Aguardando pagamento",
+                        description: "Assim que o pagamento for confirmado, você será notificado.",
                       });
+                      navigate('/pedidos');
                     }}
                   >
-                    Ver Status do Pagamento
+                    Ver Meus Pedidos
                   </Button>
                 </div>
               </CardContent>
@@ -732,6 +598,7 @@ const Pagamento = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
@@ -746,7 +613,9 @@ const Pagamento = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Formulários */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Dados de Entrega */}
             {step === 'shipping' && (
               <Card>
                 <CardHeader>
@@ -863,13 +732,8 @@ const Pagamento = () => {
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={isProcessing}>
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Validando...
-                        </>
-                      ) : 'Continuar para Pagamento'}
+                    <Button type="submit" className="w-full">
+                      Continuar para Pagamento
                     </Button>
                   </form>
                 </CardContent>
