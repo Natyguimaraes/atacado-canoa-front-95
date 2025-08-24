@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== PROCESS PAYMENT v4 ===');
+    console.log('=== PROCESS PAYMENT v5 ===');
     
     const data = await req.json();
     console.log('Payment data received:', {
@@ -162,6 +162,69 @@ serve(async (req) => {
         installments: result.installments,
         payment_method: result.payment_method,
       };
+    }
+
+    // Conectar ao Supabase para salvar o pagamento
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Supabase credentials not found');
+      return new Response(JSON.stringify(responseData), { headers });
+    }
+
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Salvar registro do pagamento
+    const paymentRecord = {
+      user_id: data.user_id,
+      order_id: data.order_id,
+      external_id: result.id.toString(),
+      amount: result.transaction_amount,
+      method: result.payment_method_id.toUpperCase(),
+      status: result.status?.toUpperCase() || 'PENDING',
+      provider: 'MERCADO_PAGO',
+      paid_at: result.status === 'approved' ? new Date().toISOString() : null,
+      metadata: data.payment_method_id === 'pix' ? {
+        qrCode: result.point_of_interaction?.transaction_data?.qr_code,
+        qrCodeBase64: result.point_of_interaction?.transaction_data?.qr_code_base64,
+        expirationDate: result.date_of_expiration,
+        ticketUrl: result.point_of_interaction?.transaction_data?.ticket_url
+      } : {
+        installments: result.installments,
+        payment_method: result.payment_method_id,
+        status_detail: result.status_detail
+      }
+    };
+
+    console.log('Saving payment record:', paymentRecord);
+
+    const { data: savedPayment, error: paymentError } = await supabase
+      .from('payments')
+      .insert(paymentRecord)
+      .select()
+      .single();
+
+    if (paymentError) {
+      console.error('Error saving payment:', paymentError);
+    } else {
+      console.log('Payment saved successfully:', savedPayment);
+      
+      // Atualizar pedido com payment_id
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({ 
+          payment_id: savedPayment.id,
+          status: result.status === 'approved' ? 'paid' : 'pending'
+        })
+        .eq('id', data.order_id);
+
+      if (orderError) {
+        console.error('Error updating order:', orderError);
+      } else {
+        console.log('Order updated with payment_id');
+      }
     }
 
     console.log('Success, returning payment result');
