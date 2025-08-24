@@ -704,14 +704,21 @@ const Pagamento = () => {
                   <Button 
                     className="flex-1"
                     onClick={() => {
-                      toast({
-                        title: "Aguardando pagamento",
-                        description: "Assim que o pagamento for confirmado, você será notificado.",
+                      navigate('/status-pagamento', { 
+                        state: { 
+                          paymentData: { 
+                            id: pixData.paymentId, 
+                            status: 'pending',
+                            payment_method_id: 'pix',
+                            pix_qr_code: pixData.qrCode,
+                            pix_qr_code_base64: pixData.qrCodeBase64
+                          }, 
+                          success: false 
+                        } 
                       });
-                      navigate('/pedidos');
                     }}
                   >
-                    Ver Meus Pedidos
+                    Ver Status do Pagamento
                   </Button>
                 </div>
               </CardContent>
