@@ -3,6 +3,7 @@ import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Cadastro from '@/pages/Cadastro';
 import Produtos from '@/pages/Produtos';
+import ProductDetails from '@/pages/ProductDetails';
 import Carrinho from '@/pages/Carrinho';
 import Pagamento from '@/pages/Pagamento';
 import StatusPagamento from '@/pages/StatusPagamento';
@@ -19,6 +20,7 @@ const AppRouter = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/produtos" element={<Produtos />} />
+        <Route path="/produto/:id" element={<ProductDetails />} />
         <Route path="/carrinho" element={<Carrinho />} />
         <Route path="/pagamento" element={<Pagamento />} />
         <Route path="/status-pagamento/:id" element={<StatusPagamento />} />

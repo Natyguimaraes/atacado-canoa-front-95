@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ const ProductCard = ({
   className,
   onAddToCart,
 }: ProductCardProps) => {
+  const navigate = useNavigate();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   // LINHA REMOVIDA
   // const { toast } = useToast();
@@ -55,10 +57,13 @@ const ProductCard = ({
   };
 
   return (
-    <Card className={cn(
-      "group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
-      className
-    )}>
+    <Card 
+      className={cn(
+        "group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer",
+        className
+      )}
+      onClick={() => navigate(`/produto/${id}`)}
+    >
       <div className="relative aspect-[4/5] overflow-hidden">
         {/* Product Image */}
         <img
@@ -83,7 +88,13 @@ const ProductCard = ({
 
         {/* Quick Add to Cart */}
         <div className="absolute bottom-2 left-2 right-2 z-10 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-          <Button className="w-full h-8 text-xs" onClick={handleAddToCart}>
+          <Button 
+            className="w-full h-8 text-xs" 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddToCart();
+            }}
+          >
             <ShoppingCart className="h-3 w-3 mr-1" />
             Adicionar ao Carrinho
           </Button>
