@@ -1,185 +1,207 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X, ShoppingCart, User, Search, Phone, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
-import { useCart } from '@/context/CartContext';
+import {
+  NavigationMenu,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  navigationMenuTriggerStyle,
+} from '@/components/ui/navigation-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Search,
+  ShoppingCart,
+  Menu,
+  User,
+  Package,
+  Heart,
+  Settings,
+  LogOut,
+  LayoutDashboard,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 import logo from '@/assets/logo.png';
 
 const Header = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { totalItems } = useCart();
-  const { user, profile, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, profile, isAdmin, signOut } = useAuth();
+  const { itemCount } = useCart();
+  const navigate = useNavigate();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const navigation = [
-    { name: 'Início', href: '/' },
-    { name: 'Produtos', href: '/produtos' },
-    { name: 'Categorias', href: '/produtos' },
-    { name: 'Contato', href: '/#contato' },
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const navLinks = [
+    { href: '/', label: 'Home' },
+    { href: '/produtos', label: 'Produtos' },
+    { href: '/sobre', label: 'Sobre Nós' },
+    { href: '/contato', label: 'Contato' },
   ];
 
+  const getInitials = (name: string) => {
+    const names = name.split(' ');
+    if (names.length > 1) {
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
   return (
-    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-      <div className="container mx-auto px-4">
-        <div className="flex h-20 items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center">
-            <img 
-              src={logo} 
-              alt="Atacado Canoa" 
-              className="h-20 w-auto" 
-            />
-            <div className="ml-3 hidden sm:block">
-              <h1 className="font-display font-bold text-lg text-primary">
-                Atacado Canoa
-              </h1>
-              <p className="text-xs text-muted-foreground -mt-1">
-                Seu porto seguro da economia
-              </p>
-            </div>
-          </div>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2">
+          <img src={logo} alt="Atacado Canoa" className="h-8 w-auto" />
+          <span className="font-bold text-lg hidden sm:inline-block">
+            Atacado Canoa
+          </span>
+        </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className="text-sm font-medium transition-colors hover:text-primary"
-              >
-                {item.name}
-              </Link>
+        {/* Desktop Navigation */}
+        <NavigationMenu className="hidden lg:flex">
+          <NavigationMenuList>
+            {navLinks.map((link) => (
+              <NavigationMenuItem key={link.href}>
+                <Link to={link.href}>
+                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                    {link.label}
+                  </NavigationMenuLink>
+                </Link>
+              </NavigationMenuItem>
             ))}
-          </nav>
+          </NavigationMenuList>
+        </NavigationMenu>
 
-          {/* Right Actions */}
-          <div className="flex items-center space-x-2">
-            {/* Search Button */}
-            <Button variant="ghost" size="icon" className="hidden sm:flex" asChild>
-              <Link to="/produtos">
-                <Search className="h-4 w-4" />
-                <span className="sr-only">Buscar</span>
-              </Link>
-            </Button>
-
-            {/* Contact Button */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="hidden lg:flex items-center gap-2"
-              asChild
-            >
-              <a href="tel:+5575997129454">
-                <Phone className="h-3 w-3" />
-                (75) 99712-9454
-              </a>
-            </Button>
-
-            {/* Cart Button */}
-            <Button variant="outline" size="icon" className="relative" asChild>
-              <Link to="/carrinho">
-                <ShoppingCart className="h-4 w-4" />
-                {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-xs font-medium text-accent-foreground flex items-center justify-center">
-                    {totalItems}
-                  </span>
-                )}
-                <span className="sr-only">Carrinho ({totalItems})</span>
-              </Link>
-            </Button>
-
-            {/* User Menu */}
-            {isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <User className="h-4 w-4" />
-                    <span className="sr-only">Conta do usuário</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <div className="font-medium">{profile?.full_name || user?.email}</div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/carrinho">Meu Carrinho</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/pedidos">Meus Pedidos</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/configuracoes">Configurações</Link>
-                  </DropdownMenuItem>
-                  {isAdmin && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin/dashboard">Painel Admin</Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={logout}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sair
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/login">Entrar</Link>
-              </Button>
-            )}
-
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <Menu className="h-4 w-4" />
+        {/* Actions */}
+        <div className="flex items-center gap-2 md:gap-4">
+          <Button variant="ghost" size="icon">
+            <Search className="h-5 w-5" />
+          </Button>
+          <Link to="/carrinho" className="relative">
+            <Button variant="ghost" size="icon">
+              <ShoppingCart className="h-5 w-5" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                  {itemCount}
+                </span>
               )}
-              <span className="sr-only">Menu</span>
             </Button>
-          </div>
-        </div>
+          </Link>
 
-        {/* Mobile Navigation */}
-        <div className={cn(
-          "md:hidden border-t transition-all duration-300 ease-in-out overflow-hidden",
-          isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-        )}>
-          <nav className="py-4 space-y-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className="block px-4 py-2 text-sm font-medium transition-colors hover:text-primary hover:bg-muted rounded-md"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
-            <div className="px-4 pt-2 border-t">
-              <a 
-                href="tel:+5575997129454"
-                className="flex items-center gap-2 py-2 text-sm font-medium text-primary"
-              >
-                <Phone className="h-4 w-4" />
-                (75) 99712-9454
-              </a>
-            </div>
-          </nav>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email} />
+                    <AvatarFallback>
+                      {getInitials(profile?.full_name || user.email || 'U')}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isAdmin && (
+                   <DropdownMenuItem asChild>
+                    <Link to="/admin/dashboard" className="flex items-center">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      <span>Painel Admin</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link to="/perfil" className="flex items-center">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Meu Perfil</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/pedidos" className="flex items-center">
+                    <Package className="mr-2 h-4 w-4" />
+                    <span>Meus Pedidos</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/favoritos" className="flex items-center">
+                     <Heart className="mr-2 h-4 w-4" />
+                    <span>Favoritos</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                   <Link to="/configuracoes" className="flex items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Configurações</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild>
+              <Link to="/login">Entrar</Link>
+            </Button>
+          )}
+
+          {/* Mobile Menu Trigger */}
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild className="lg:hidden">
+              <Button variant="outline" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right">
+              <SheetHeader>
+                <SheetTitle>
+                   <Link to="/" className="flex items-center gap-2" onClick={() => setIsSheetOpen(false)}>
+                    <img src={logo} alt="Atacado Canoa" className="h-8 w-auto" />
+                    <span className="font-bold text-lg">Atacado Canoa</span>
+                  </Link>
+                </SheetTitle>
+              </SheetHeader>
+              <div className="mt-8 flex flex-col gap-4">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className="text-lg font-medium text-foreground hover:text-primary"
+                    onClick={() => setIsSheetOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>

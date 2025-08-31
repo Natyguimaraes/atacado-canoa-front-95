@@ -24,6 +24,7 @@ interface Product {
   is_active: boolean;
   is_new: boolean;
   is_featured: boolean;
+  stock: number;
 }
 
 interface EditProductModalProps {
@@ -61,16 +62,13 @@ const EditProductModal = ({ product, onClose }: EditProductModalProps) => {
     isNew: false,
     isFeatured: false,
     isActive: true,
+    stock: '',
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- INÍCIO DA CORREÇÃO ---
-  // Este useEffect será executado sempre que a propriedade 'product' mudar.
-  // Isso garante que o formulário seja sempre preenchido com os dados do produto selecionado.
   useEffect(() => {
-    console.log('[EditProductModal] useEffect disparado. Atualizando formulário para o produto:', product.name);
     if (product) {
       setFormData({
         name: product.name,
@@ -84,49 +82,35 @@ const EditProductModal = ({ product, onClose }: EditProductModalProps) => {
         isNew: product.is_new,
         isFeatured: product.is_featured,
         isActive: product.is_active,
+        stock: product.stock?.toString() || '0',
       });
     }
   }, [product]);
-  // --- FIM DA CORREÇÃO ---
 
   const handleInputChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSizeToggle = (size: string) => {
-    const newSizes = formData.sizes.includes(size)
-      ? formData.sizes.filter(s => s !== size)
-      : [...formData.sizes, size];
+    const newSizes = formData.sizes.includes(size) ? formData.sizes.filter(s => s !== size) : [...formData.sizes, size];
     handleInputChange('sizes', newSizes);
   };
 
   const handleColorToggle = (color: string) => {
-    const newColors = formData.colors.includes(color)
-      ? formData.colors.filter(c => c !== color)
-      : [...formData.colors, color];
+    const newColors = formData.colors.includes(color) ? formData.colors.filter(c => c !== color) : [...formData.colors, color];
     handleInputChange('colors', newColors);
   };
-
+  
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsLoading(true);
     const fileName = `${Date.now()}-${file.name.replace(/\s/g, '-')}`;
-    
     try {
-      const { data, error } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file);
-
+      const { data, error } = await supabase.storage.from('product-images').upload(fileName, file);
       if (error) throw new Error('Erro ao fazer upload da imagem.');
-      
-      const publicURL = supabase.storage
-        .from('product-images')
-        .getPublicUrl(data.path).data.publicUrl;
-
+      const publicURL = supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl;
       handleInputChange('images', [...formData.images, publicURL]);
-      
       toast.success('Imagem adicionada!');
     } catch (error: any) {
       toast.error('Erro no upload', { description: error.message });
@@ -138,16 +122,6 @@ const EditProductModal = ({ product, onClose }: EditProductModalProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (formData.sizes.length === 0) {
-      toast.error("Erro de Validação", { description: "Selecione pelo menos um tamanho." });
-      return;
-    }
-    if (formData.images.length === 0) {
-      toast.error("Erro de Validação", { description: "Adicione pelo menos uma imagem." });
-      return;
-    }
-
     setIsLoading(true);
     try {
       const { error } = await supabase
@@ -164,11 +138,10 @@ const EditProductModal = ({ product, onClose }: EditProductModalProps) => {
           is_new: formData.isNew,
           is_featured: formData.isFeatured,
           is_active: formData.isActive,
+          stock: parseInt(formData.stock, 10) || 0,
         })
         .eq('id', product.id);
-
       if (error) throw new Error(error.message);
-
       toast.success("Produto atualizado com sucesso!");
       onClose();
     } catch (error: any) {
@@ -182,163 +155,104 @@ const EditProductModal = ({ product, onClose }: EditProductModalProps) => {
 
   return (
     <ScrollArea className="h-[70vh] p-4">
-      <div className="space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nome do Produto *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                required
-              />
+              <Input id="name" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Categoria *</Label>
-              <Select 
-                value={formData.category} 
-                onValueChange={(value) => handleInputChange('category', value)}
-              >
+              <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                  ))}
+                  {categories.map((cat) => (<SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="description">Descrição</Label>
+          <Textarea id="description" value={formData.description} onChange={(e) => handleInputChange('description', e.target.value)} rows={3}/>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="price">Preço de Venda *</Label>
+            <Input id="price" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              rows={3}
-            />
+            <Label htmlFor="originalPrice">Preço Original (opcional)</Label>
+            <Input id="originalPrice" type="number" step="0.01" value={formData.originalPrice} onChange={(e) => handleInputChange('originalPrice', e.target.value)} />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">Preço de Venda *</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => handleInputChange('price', e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="originalPrice">Preço Original (opcional)</Label>
-              <Input
-                id="originalPrice"
-                type="number"
-                step="0.01"
-                value={formData.originalPrice}
-                onChange={(e) => handleInputChange('originalPrice', e.target.value)}
-              />
-            </div>
-          </div>
-          {formData.category && (
-            <div className="space-y-2">
-              <Label>Tamanhos Disponíveis *</Label>
-              <div className="flex flex-wrap gap-2">
-                {currentSizes.map((size) => (
-                  <Badge
-                    key={size}
-                    variant={formData.sizes.includes(size) ? 'default' : 'outline'}
-                    className="cursor-pointer"
-                    onClick={() => handleSizeToggle(size)}
-                  >
-                    {size}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
           <div className="space-y-2">
-            <Label>Cores Disponíveis</Label>
+            <Label htmlFor="stock">Quantidade em Estoque *</Label>
+            <Input id="stock" type="number" value={formData.stock} onChange={(e) => handleInputChange('stock', e.target.value)} required />
+          </div>
+        </div>
+
+        {formData.category && (
+          <div className="space-y-2">
+            <Label>Tamanhos Disponíveis *</Label>
             <div className="flex flex-wrap gap-2">
-              {availableColors.map((color) => (
-                <Badge
-                  key={color}
-                  variant={formData.colors.includes(color) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => handleColorToggle(color)}
-                >
-                  {color}
-                </Badge>
+              {currentSizes.map((size) => (
+                <Badge key={size} variant={formData.sizes.includes(size) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => handleSizeToggle(size)}>{size}</Badge>
               ))}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Imagens do Produto</Label>
-            <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center relative cursor-pointer">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-2">Clique para selecionar uma imagem</p>
-            </div>
-            <div className="flex flex-wrap gap-4 mt-4">
-              {formData.images.map((image, index) => (
-                <div key={index} className="relative w-24 h-24 rounded-md overflow-hidden">
-                  <img src={image} alt={`Produto ${index + 1}`} className="w-full h-full object-cover" />
-                  <Button 
-                    type="button" 
-                    variant="destructive" 
-                    size="icon" 
-                    className="absolute top-1 right-1 h-6 w-6"
-                    onClick={() => handleInputChange('images', formData.images.filter((_, i) => i !== index))}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>Cores Disponíveis</Label>
+          <div className="flex flex-wrap gap-2">
+            {availableColors.map((color) => (
+              <Badge key={color} variant={formData.colors.includes(color) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => handleColorToggle(color)}>{color}</Badge>
+            ))}
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isNew"
-                checked={formData.isNew}
-                onCheckedChange={(checked) => handleInputChange('isNew', checked as boolean)}
-              />
-              <Label htmlFor="isNew">Produto novo</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isFeatured"
-                checked={formData.isFeatured}
-                onCheckedChange={(checked) => handleInputChange('isFeatured', checked as boolean)}
-              />
-              <Label htmlFor="isFeatured">Produto em destaque</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => handleInputChange('isActive', checked as boolean)}
-              />
-              <Label htmlFor="isActive">Produto ativo (visível na loja)</Label>
-            </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Imagens do Produto</Label>
+          <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center relative cursor-pointer">
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+            <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground mb-2">Clique para selecionar uma imagem</p>
           </div>
-          <div className="flex gap-4 justify-end">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button 
-              type="submit" 
-              disabled={isLoading || !formData.name || !formData.category || !formData.price || formData.sizes.length === 0}
-            >
-              {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
+          <div className="flex flex-wrap gap-4 mt-4">
+            {formData.images.map((image, index) => (
+              <div key={index} className="relative w-24 h-24 rounded-md overflow-hidden">
+                <img src={image} alt={`Produto ${index + 1}`} className="w-full h-full object-cover" />
+                <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleInputChange('images', formData.images.filter((_, i) => i !== index))}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
           </div>
-        </form>
-      </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox id="isNew" checked={formData.isNew} onCheckedChange={(checked) => handleInputChange('isNew', checked as boolean)}/>
+            <Label htmlFor="isNew">Produto novo</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="isFeatured" checked={formData.isFeatured} onCheckedChange={(checked) => handleInputChange('isFeatured', checked as boolean)}/>
+            <Label htmlFor="isFeatured">Produto em destaque</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="isActive" checked={formData.isActive} onCheckedChange={(checked) => handleInputChange('isActive', checked as boolean)}/>
+            <Label htmlFor="isActive">Produto ativo (visível na loja)</Label>
+          </div>
+        </div>
+        
+        <div className="flex gap-4 justify-end pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+          </Button>
+        </div>
+      </form>
     </ScrollArea>
   );
 };

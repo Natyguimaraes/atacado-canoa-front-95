@@ -1,198 +1,151 @@
-import { Link } from 'react-router-dom';
-import { Minus, Plus, X, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { useCart } from '@/context/CartContext';
+import { Link } from 'react-router-dom';
+import { Trash2, Plus, Minus, Frown } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import Header from '@/components/Header'; // <-- 1. Importar o Header
+import Footer from '@/components/Footer'; // <-- 2. Importar o Footer
 
 const Carrinho = () => {
-  const { items, updateQuantity, removeItem, totalPrice, totalItems } = useCart();
+  const { cart, removeFromCart, updateQuantity, loading, clearCart } = useCart();
 
-  if (items.length === 0) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto text-center py-16">
-            <ShoppingBag className="h-24 w-24 mx-auto text-muted-foreground mb-6" />
-            <h1 className="font-display text-3xl font-bold text-primary mb-4">
-              Seu carrinho está vazio
-            </h1>
-            <p className="text-lg text-muted-foreground mb-8">
-              Que tal dar uma olhada em nossos produtos?
-            </p>
-            <Button size="lg" asChild>
-              <Link to="/produtos">
-                Ver Produtos
-              </Link>
-            </Button>
-          </div>
-        </main>
-
-        <Footer />
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <Button variant="ghost" asChild className="mb-4">
-            <Link to="/produtos" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Continuar Comprando
-            </Link>
-          </Button>
-          
-          <h1 className="font-display text-3xl md:text-4xl font-bold text-primary mb-2">
-            Meu Carrinho
-          </h1>
-          <p className="text-muted-foreground">
-            {totalItems} {totalItems === 1 ? 'item' : 'itens'} no carrinho
+  const renderCartContent = () => {
+    if (loading) {
+      return <CarrinhoSkeleton />;
+    }
+  
+    if (!cart || cart.length === 0) {
+      return (
+        <div className="container mx-auto px-4 py-8 text-center">
+          <Frown className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+          <h1 className="text-2xl font-bold mb-2">O seu carrinho está vazio</h1>
+          <p className="text-muted-foreground mb-6">
+            Parece que você ainda não adicionou nenhum produto.
           </p>
+          <Button asChild>
+            <Link to="/produtos">Começar a comprar</Link>
+          </Button>
         </div>
+      );
+    }
 
+    const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 font-display">Meu Carrinho</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <Card key={`${item.id}-${item.size}`}>
-                <CardContent className="p-6">
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    {/* Product Image */}
-                    <div className="w-full sm:w-24 aspect-square rounded-md overflow-hidden bg-muted">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-
-                    {/* Product Details */}
-                    <div className="flex-1 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {item.category} • Tamanho: {item.size}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeItem(item.id, item.size)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.id, item.size, item.quantity - 1)}
-                            disabled={item.quantity <= 1}
-                            className="h-8 w-8"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center font-medium">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.id, item.size, item.quantity + 1)}
-                            className="h-8 w-8"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="font-semibold text-primary">
-                            R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}
-                          </p>
-                          {item.quantity > 1 && (
-                            <p className="text-xs text-muted-foreground">
-                              R$ {item.price.toFixed(2).replace('.', ',')} cada
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
+            {cart.map((item) => (
+              <Card key={`${item.product_id}-${item.size}-${item.color}`} className="flex items-center p-4">
+                <img
+                  src={item.image || '/placeholder.svg'}
+                  alt={item.name}
+                  className="w-24 h-24 object-cover rounded-md mr-4"
+                />
+                <div className="flex-grow">
+                  <h2 className="font-semibold">{item.name}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {item.size && `Tamanho: ${item.size}`}
+                    {item.color && ` / Cor: ${item.color}`}
+                  </p>
+                  <p className="font-bold mt-1">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                </div>
+                <div className="flex items-center border rounded-md mx-4">
+                  <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.product_id, item.quantity - 1, item.size, item.color)}>
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-10 text-center">{item.quantity}</span>
+                  <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.product_id, item.quantity + 1, item.size, item.color)}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.product_id, item.size, item.color)}>
+                  <Trash2 className="h-5 w-5 text-destructive" />
+                </Button>
               </Card>
             ))}
           </div>
-
-          {/* Order Summary */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-4">
+            <Card>
               <CardHeader>
                 <CardTitle>Resumo do Pedido</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'itens'})</span>
-                    <span>R$ {totalPrice.toFixed(2).replace('.', ',')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Frete</span>
-                    <span className="text-success">Grátis</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
                 </div>
-
+                <div className="flex justify-between">
+                  <span>Frete</span>
+                  <span>Grátis</span>
+                </div>
                 <Separator />
-
-                <div className="flex justify-between font-semibold text-lg">
+                <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span className="text-primary">
-                    R$ {totalPrice.toFixed(2).replace('.', ',')}
-                  </span>
+                  <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
                 </div>
-
-                <div className="space-y-3">
-                  <Button className="w-full" size="lg" asChild>
-                    <Link to="/pagamento">
-                      Finalizar Compra
-                    </Link>
-                  </Button>
-                  
-                  <Button variant="outline" className="w-full" asChild>
-                    <a 
-                      href="https://wa.me/5575997129454" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                    >
-                      Comprar via WhatsApp
-                    </a>
-                  </Button>
-                </div>
-
-                <div className="text-xs text-muted-foreground text-center">
-                  <p>Frete grátis para toda a região</p>
-                  <p>Pagamento na entrega disponível</p>
-                </div>
+                <Button size="lg" className="w-full" asChild>
+                  <Link to="/pagamento">Finalizar Compra</Link>
+                </Button>
+                <Button variant="outline" className="w-full" onClick={clearCart}>
+                  Limpar Carrinho
+                </Button>
               </CardContent>
             </Card>
           </div>
         </div>
-      </main>
+      </div>
+    );
+  };
 
+  return (
+    // --- 3. Envolver o conteúdo com a estrutura da página ---
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-grow">
+        {renderCartContent()}
+      </main>
       <Footer />
     </div>
   );
 };
+
+const CarrinhoSkeleton = () => (
+  <div className="container mx-auto px-4 py-8">
+    <Skeleton className="h-10 w-1/4 mb-6" />
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="lg:col-span-2 space-y-4">
+        {[...Array(2)].map((_, i) => (
+          <Card key={i} className="flex items-center p-4">
+            <Skeleton className="w-24 h-24 rounded-md mr-4" />
+            <div className="flex-grow space-y-2">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-5 w-1/4" />
+            </div>
+            <Skeleton className="h-10 w-32 mx-4" />
+            <Skeleton className="h-10 w-10" />
+          </Card>
+        ))}
+      </div>
+      <div className="lg:col-span-1">
+        <Card>
+          <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between"><Skeleton className="h-5 w-1/4" /><Skeleton className="h-5 w-1/4" /></div>
+            <div className="flex justify-between"><Skeleton className="h-5 w-1/4" /><Skeleton className="h-5 w-1/4" /></div>
+            <Separator />
+            <div className="flex justify-between"><Skeleton className="h-7 w-1/3" /><Skeleton className="h-7 w-1/3" /></div>
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  </div>
+);
 
 export default Carrinho;

@@ -1,484 +1,208 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Heart, Star, Shield, Truck, RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useCart } from '@/context/CartContext';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import ProductCard from '@/components/ProductCard';
-
-// Importa as imagens padrão para o fallback
-import babyClothes from '@/assets/baby-clothes.jpg';
-import kidsClothes from '@/assets/kids-clothes.jpg';
-import adultClothes from '@/assets/adult-clothes.jpg';
+import { toast } from 'sonner';
+import { useCart } from '@/context/CartContext';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { Minus, Plus, Loader2 } from 'lucide-react';
 
 interface Product {
   id: string;
   name: string;
-  price: number;
-  originalPrice?: number;
-  image: string;
-  images?: string[];
+  description?: string;
   category: string;
-  sizes: string[];
-  colors: string[];
-  isNew: boolean;
-  isFeatured: boolean;
-  description: string;
-  brand?: string;
-  rating?: number;
-  stock?: number;
+  price: number;
+  original_price?: number;
+  images?: string[];
+  sizes?: string[];
+  colors?: string[];
+  stock: number;
 }
-
-// Mapeamento de imagens padrão por categoria para o fallback
-const categoryImages = {
-  bebe: babyClothes,
-  infantil: kidsClothes,
-  adulto: adultClothes,
-};
 
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
-  const [selectedSize, setSelectedSize] = useState<string>('');
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
-  
+  const [quantity, setQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
   const { addToCart } = useCart();
-  const { isAuthenticated } = useAuth();
-  const { toast } = useToast();
 
   useEffect(() => {
-    if (id) {
-      fetchProduct();
-      fetchRelatedProducts();
-    }
+    const fetchProduct = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .single();
+        if (error) throw error;
+        
+        // --- CORREÇÃO DE TIPAGEM AQUI ---
+        setProduct(data as unknown as Product);
+
+      } catch (error: any) {
+        toast.error('Erro ao buscar o produto.', { description: error.message });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProduct();
   }, [id]);
 
-  const fetchProduct = async () => {
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', id)
-        .eq('is_active', true)
-        .single();
-
-      if (error) {
-        console.error('Error fetching product:', error);
-        navigate('/produtos');
-        return;
-      }
-
-      const transformedProduct: Product = {
-        id: data.id,
-        name: data.name,
-        price: Number(data.price),
-        originalPrice: data.original_price ? Number(data.original_price) : undefined,
-        // CORRIGIDO: Adiciona o fallback para a imagem principal
-        image: data.images?.[0] || categoryImages[data.category as keyof typeof categoryImages],
-        images: data.images || [],
-        category: data.category,
-        sizes: data.sizes || [],
-        colors: data.colors || [],
-        isNew: data.is_new,
-        isFeatured: data.is_featured,
-        description: data.description || '',
-        brand: undefined,
-        rating: 5,
-        stock: 10,
-      };
-
-      setProduct(transformedProduct);
-      if (transformedProduct.sizes.length > 0) {
-        setSelectedSize(transformedProduct.sizes[0]);
-      }
-      if (transformedProduct.colors.length > 0) {
-        setSelectedColor(transformedProduct.colors[0]);
-      }
-    } catch (error) {
-      console.error('Error fetching product:', error);
-      navigate('/produtos');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchRelatedProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .neq('id', id)
-        .limit(4);
-
-      if (error) {
-        console.error('Error fetching related products:', error);
-        return;
-      }
-
-      const transformedProducts: Product[] = data?.map(product => ({
-        id: product.id,
-        name: product.name,
-        price: Number(product.price),
-        originalPrice: product.original_price ? Number(product.original_price) : undefined,
-        image: product.images?.[0] || categoryImages[product.category as keyof typeof categoryImages],
-        images: product.images || [],
-        category: product.category,
-        sizes: product.sizes || [],
-        colors: product.colors || [],
-        isNew: product.is_new,
-        isFeatured: product.is_featured,
-        description: product.description || '',
-      })) || [];
-
-      setRelatedProducts(transformedProducts);
-    } catch (error) {
-      console.error('Error fetching related products:', error);
-    }
-  };
-
   const handleAddToCart = () => {
-    if (!isAuthenticated) {
-      toast({
-        title: 'Login necessário',
-        description: 'Você precisa estar logado para adicionar itens ao carrinho.',
-        variant: 'destructive',
-      });
+    if (!product) return;
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      toast.error('Por favor, selecione um tamanho.');
       return;
     }
-
-    if (!selectedSize && product?.sizes.length > 0) {
-      toast({
-        title: 'Selecione um tamanho',
-        description: 'Por favor, selecione um tamanho antes de adicionar ao carrinho.',
-        variant: 'destructive',
-      });
+    if (quantity > product.stock) {
+      toast.error('Quantidade indisponível em estoque.');
       return;
     }
-
-    if (product) {
-      const success = addToCart(product, selectedSize);
-      if (success) {
-        toast({
-          title: 'Produto adicionado!',
-          description: `${product.name} foi adicionado ao seu carrinho.`,
-        });
-      }
-    }
+    setIsAdding(true);
+    setTimeout(() => {
+      addToCart(product, quantity, selectedSize || undefined, selectedColor || undefined);
+      setIsAdding(false);
+    }, 500);
   };
 
-  const hasDiscount = product?.originalPrice && product.originalPrice > product.price;
-  const discountPercentage = hasDiscount 
-    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-    : 0;
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Skeleton className="w-full aspect-square" />
-            <div className="space-y-4">
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-6 w-1/2" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
+  if (isLoading) return <ProductDetailsSkeleton />;
   if (!product) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Produto não encontrado</h1>
-            <Button onClick={() => navigate('/produtos')}>
-              Voltar aos produtos
-            </Button>
-          </div>
-        </main>
-        <Footer />
+      return (
+      <div className="container mx-auto text-center py-20">
+        <h2 className="text-2xl font-bold">Produto não encontrado</h2>
+        <Button asChild className="mt-4">
+          <Link to="/produtos">Voltar aos produtos</Link>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container mx-auto px-4 py-8">
-        
-        {/* Product Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Product Images */}
-          <div className="space-y-4">
-            <div className="aspect-square overflow-hidden rounded-lg bg-muted">
-              {/* CORRIGIDO: Exibir a imagem correta, com fallback se a array de imagens estiver vazia */}
-              <img
-                src={product.images?.[selectedImageIndex] || product.image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            
-            {/* Thumbnail Images */}
-            {product.images && product.images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto">
-                {product.images.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 ${
-                      selectedImageIndex === index ? 'border-primary' : 'border-transparent'
-                    }`}
-                  >
-                    <img
-                      src={image}
-                      alt={`${product.name} ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
+    <div className="container mx-auto px-4 py-8">
+      <Breadcrumb className="mb-8">
+        <BreadcrumbList>
+          <BreadcrumbItem><BreadcrumbLink asChild><Link to="/">Home</Link></BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem><BreadcrumbLink asChild><Link to="/produtos">Produtos</Link></BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem><BreadcrumbPage>{product.name}</BreadcrumbPage></BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+        <Carousel className="w-full">
+          <CarouselContent>
+            {product.images && product.images.length > 0 ? (
+              product.images.map((image, index) => (
+                <CarouselItem key={index}>
+                  <div className="aspect-square w-full overflow-hidden rounded-lg">
+                    <img src={image} alt={`${product.name} ${index + 1}`} className="w-full h-full object-cover" />
+                  </div>
+                </CarouselItem>
+              ))
+            ) : (
+              <CarouselItem>
+                <div className="aspect-square w-full bg-muted rounded-lg flex items-center justify-center">
+                  <span>Sem imagem</span>
+                </div>
+              </CarouselItem>
+            )}
+          </CarouselContent>
+          <CarouselPrevious />
+          <CarouselNext />
+        </Carousel>
+
+        <div className="space-y-6">
+          <div>
+            <Badge variant="secondary" className="mb-2">{product.category}</Badge>
+            <h1 className="text-3xl lg:text-4xl font-bold font-display">{product.name}</h1>
+            <p className="text-muted-foreground mt-2">{product.description || "Descrição não disponível."}</p>
+          </div>
+          <div className="flex items-baseline gap-4">
+            <span className="text-3xl font-bold text-primary">R$ {product.price.toFixed(2).replace('.', ',')}</span>
+            {product.original_price && (<span className="text-lg text-muted-foreground line-through">R$ {product.original_price.toFixed(2).replace('.', ',')}</span>)}
+          </div>
+          
+          <div className="pt-2">
+            {product.stock === 0 ? (
+              <Badge variant="destructive" className="text-base px-3 py-1">Esgotado</Badge>
+            ) : product.stock <= 3 ? (
+              <Badge variant="secondary" className="bg-orange-500 text-white text-base px-3 py-1">Últimas unidades!</Badge>
+            ) : (
+              <p className="text-sm text-green-600 font-semibold">Em estoque ({product.stock} disponíveis)</p>
+            )}
+          </div>
+
+          {product.sizes && product.sizes.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-semibold">Tamanho:</h3>
+              <div className="flex flex-wrap gap-2">
+                {product.sizes.map((size) => (
+                  <Button key={size} variant={selectedSize === size ? 'default' : 'outline'} onClick={() => setSelectedSize(size)}>{size}</Button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Product Info */}
-          <div className="space-y-6">
-            {/* Badges */}
-            <div className="flex gap-2">
-              {product.isNew && (
-                <Badge variant="secondary" className="bg-success text-success-foreground">
-                  Novo
-                </Badge>
-              )}
-              {discountPercentage > 0 && (
-                <Badge variant="destructive">
-                  -{discountPercentage}%
-                </Badge>
-              )}
             </div>
-
-            {/* Product Name */}
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold mb-2">{product.name}</h1>
-              {product.brand && (
-                <p className="text-muted-foreground">Marca: {product.brand}</p>
-              )}
-            </div>
-
-            {/* Rating */}
-            {product.rating && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-4 w-4 ${
-                        i < product.rating! ? 'text-yellow-400 fill-current' : 'text-muted-foreground'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-sm text-muted-foreground">({product.rating}/5)</span>
-              </div>
-            )}
-
-            {/* Price */}
+          )}
+          {product.colors && product.colors.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-primary">
-                  R$ {product.price.toFixed(2).replace('.', ',')}
-                </span>
-                {hasDiscount && (
-                  <span className="text-lg text-muted-foreground line-through">
-                    R$ {product.originalPrice!.toFixed(2).replace('.', ',')}
-                  </span>
-                )}
+              <h3 className="font-semibold">Cor:</h3>
+              <div className="flex flex-wrap gap-2">
+                {product.colors.map((color) => (
+                   <Button key={color} variant={selectedColor === color ? 'default' : 'outline'} onClick={() => setSelectedColor(color)} className="h-8 w-8 rounded-full p-0 border-2" style={{ backgroundColor: color.toLowerCase() }} aria-label={color}/>
+                ))}
               </div>
-              <p className="text-sm text-muted-foreground">
-                ou 12x de R$ {(product.price / 12).toFixed(2).replace('.', ',')} sem juros
-              </p>
             </div>
+          )}
 
-            {/* Size Selection */}
-            {product.sizes.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="font-medium">Tamanho</h3>
-                <ToggleGroup 
-                  type="single" 
-                  value={selectedSize} 
-                  onValueChange={setSelectedSize}
-                  className="justify-start flex-wrap gap-2"
-                >
-                  {product.sizes.map((size) => (
-                    <ToggleGroupItem 
-                      key={size} 
-                      value={size}
-                      className="h-10 min-w-10 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                    >
-                      {size}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
-            )}
-
-            {/* Color Selection */}
-            {product.colors.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="font-medium">Cor</h3>
-                <ToggleGroup 
-                  type="single" 
-                  value={selectedColor} 
-                  onValueChange={setSelectedColor}
-                  className="justify-start flex-wrap gap-2"
-                >
-                  {product.colors.map((color) => (
-                    <ToggleGroupItem 
-                      key={color} 
-                      value={color}
-                      className="h-10 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                    >
-                      {color}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
-            )}
-
-            {/* Stock Info */}
-            {product.stock !== undefined && (
-              <p className={`text-sm ${product.stock > 0 ? 'text-success' : 'text-destructive'}`}>
-                {product.stock > 0 ? `${product.stock} em estoque` : 'Fora de estoque'}
-              </p>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <Button
-                size="lg"
-                className="flex-1"
-                onClick={handleAddToCart}
-                disabled={product.stock === 0}
-              >
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Adicionar ao Carrinho
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => setIsFavorite(!isFavorite)}
-              >
-                <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current text-red-500' : ''}`} />
-              </Button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center border rounded-md">
+              <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={product.stock === 0}><Minus className="h-4 w-4" /></Button>
+              <span className="w-12 text-center">{product.stock === 0 ? 0 : quantity}</span>
+              <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} disabled={product.stock === 0}><Plus className="h-4 w-4" /></Button>
             </div>
-
-            {/* Benefits */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Truck className="h-5 w-5 text-primary" />
-                    <span className="text-sm">Frete grátis para compras acima de R$ 99</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <RotateCcw className="h-5 w-5 text-primary" />
-                    <span className="text-sm">Troca grátis em até 30 dias</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <span className="text-sm">Compra protegida</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <Button size="lg" className="w-full" onClick={handleAddToCart} disabled={isAdding || product.stock === 0}>
+              {isAdding ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adicionando...</>) : (product.stock === 0 ? 'Esgotado' : 'Adicionar ao Carrinho')}
+            </Button>
           </div>
         </div>
-
-        {/* Product Description */}
-        {product.description && (
-          <Card className="mb-12">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-bold mb-4">Descrição do Produto</h2>
-              <p className="text-muted-foreground leading-relaxed">{product.description}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Produtos Relacionados</h2>
-              <Button variant="outline" onClick={() => navigate('/produtos')}>
-                Ver todos
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((relatedProduct) => (
-                <ProductCard
-                  key={relatedProduct.id}
-                  id={relatedProduct.id}
-                  name={relatedProduct.name}
-                  price={relatedProduct.price}
-                  originalPrice={relatedProduct.originalPrice}
-                  image={relatedProduct.image}
-                  category={relatedProduct.category}
-                  sizes={relatedProduct.sizes}
-                  isNew={relatedProduct.isNew}
-                  isFeatured={relatedProduct.isFeatured}
-                  colors={relatedProduct.colors}
-                  onAddToCart={(selectedSize: string) => {
-                    if (!isAuthenticated) {
-                      toast({
-                        title: 'Login necessário',
-                        description: 'Você precisa estar logado para adicionar itens ao carrinho.',
-                        variant: 'destructive',
-                      });
-                      return;
-                    }
-                    const success = addToCart(relatedProduct, selectedSize);
-                    if (success) {
-                      toast({
-                        title: 'Produto adicionado!',
-                        description: `${relatedProduct.name} foi adicionado ao seu carrinho.`,
-                      });
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </main>
-
-      <Footer />
+      </div>
     </div>
   );
 };
+
+const ProductDetailsSkeleton = () => (
+    <div className="container mx-auto px-4 py-8">
+    <Skeleton className="h-6 w-1/3 mb-8" />
+    <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+      <Skeleton className="aspect-square w-full rounded-lg" />
+      <div className="space-y-6">
+        <Skeleton className="h-6 w-1/4" />
+        <Skeleton className="h-10 w-3/4" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-10 w-1/2" />
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-1/5" />
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-12" />
+            <Skeleton className="h-10 w-12" />
+            <Skeleton className="h-10 w-12" />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-12 w-32" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export default ProductDetails;

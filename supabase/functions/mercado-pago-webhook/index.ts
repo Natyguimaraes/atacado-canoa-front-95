@@ -1,169 +1,77 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'std/http/server.ts';
+import { createClient } from 'supabase-js';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Inicialização do cliente do Mercado Pago
+const client = new MercadoPagoConfig({ accessToken: Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')! });
+const payment = new Payment(client);
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const { type, data } = await req.json();
 
   try {
-    console.log('=== MERCADO PAGO WEBHOOK RECEIVED ===');
-    
-    // Obter dados do webhook
-    const bodyText = await req.text();
-    console.log('Webhook body:', bodyText);
-    
-    // Obter headers para validação
-    const xSignature = req.headers.get('x-signature');
-    const xRequestId = req.headers.get('x-request-id');
-    
-    console.log('X-Signature:', xSignature);
-    console.log('X-Request-ID:', xRequestId);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}` } } }
+    );
 
-    // Validar assinatura do webhook
-    const webhookSecret = Deno.env.get('MERCADO_PAGO_WEBHOOK_SECRET');
-    if (!webhookSecret) {
-      console.log('ERROR: Webhook secret not configured');
-      return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Temporariamente desabilitando validação de assinatura para permitir webhooks
-    console.log('⚠️ Signature validation temporarily disabled for testing');
-
-    // Parse do body
-    const body = JSON.parse(bodyText);
-    const { type, data } = body;
-
-    console.log('Webhook recebido:', { type, data });
-
-    // Verificar se é um webhook de pagamento
     if (type === 'payment') {
-      const paymentId = data.id;
-      
-      if (!paymentId) {
-        throw new Error('ID do pagamento não encontrado no webhook');
-      }
+      const paymentData = await payment.get({ id: data.id });
+      console.log('Webhook de pagamento recebido:', paymentData);
 
-      // Buscar detalhes do pagamento na API do Mercado Pago
-      const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
-      if (!accessToken) {
-        throw new Error('Token do Mercado Pago não configurado');
-      }
-
-      const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!paymentResponse.ok) {
-        throw new Error('Erro ao buscar pagamento na API do Mercado Pago');
-      }
-
-      const paymentData = await paymentResponse.json();
-      console.log('Dados do pagamento:', {
-        id: paymentData.id,
-        status: paymentData.status,
-        external_reference: paymentData.external_reference
-      });
-
-      // Conectar ao Supabase
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-      if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error('Configurações do Supabase não encontradas');
-      }
-
-      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-      // Atualizar status do pagamento no banco de dados
-      // Mapear status do Mercado Pago para nossos status válidos
-      const mapStatus = (mpStatus: string) => {
-        switch (mpStatus?.toLowerCase()) {
-          case 'approved':
-            return 'PAID';
-          case 'pending':
-            return 'PENDING';
-          case 'cancelled':
-          case 'canceled':
-            return 'CANCELED';
-          case 'rejected':
-            return 'FAILED';
-          case 'in_process':
-            return 'IN_PROCESS';
-          default:
-            return 'PENDING';
-        }
-      };
-
-      const { data: payment, error: paymentUpdateError } = await supabase
-        .from('payments')
-        .update({
-          status: mapStatus(paymentData.status),
-          paid_at: paymentData.status === 'approved' ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('external_id', paymentId.toString())
-        .select()
+      // Encontrar o pedido associado a este pagamento
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('mp_payment_id', paymentData.id)
         .single();
-
-      if (paymentUpdateError) {
-        console.error('Erro ao atualizar pagamento:', paymentUpdateError);
-        throw new Error('Erro ao atualizar pagamento no banco de dados');
+      
+      if (orderError || !order) {
+        console.error(`Pedido não encontrado para o pagamento ID: ${paymentData.id}`);
+        return new Response('Pedido não encontrado', { status: 404 });
       }
 
-      console.log('Pagamento atualizado:', payment);
-
-      // Se pagamento foi aprovado, atualizar status do pedido
-      if (paymentData.status === 'approved' && payment.order_id) {
+      // Se o pagamento foi aprovado, atualize o status do pedido e diminua o estoque
+      if (paymentData.status === 'approved') {
         const { error: orderUpdateError } = await supabase
           .from('orders')
           .update({
             status: 'paid',
             updated_at: new Date().toISOString()
           })
-          .eq('id', payment.order_id);
+          .eq('id', order.id);
 
         if (orderUpdateError) {
-          console.error('Erro ao atualizar pedido:', orderUpdateError);
+          console.error('Erro ao atualizar status do pedido:', orderUpdateError);
         } else {
-          console.log('Pedido atualizado para status "paid"');
+          console.log(`Pedido ${order.id} atualizado para status "paid".`);
+        }
+
+        // --- LÓGICA DE DIMINUIÇÃO DE ESTOQUE ---
+        if (Array.isArray(order.items)) {
+          console.log(`Iniciando baixa de estoque para o pedido: ${order.id}`);
+          for (const item of order.items) {
+            if (item.product_id && item.quantity) {
+              const { error: stockError } = await supabase.rpc('decrease_stock', {
+                product_id_to_update: item.product_id,
+                quantity_to_decrease: item.quantity
+              });
+
+              if (stockError) {
+                console.error(`Erro ao diminuir estoque do produto ${item.product_id}:`, stockError);
+              } else {
+                console.log(`Estoque do produto ${item.product_id} diminuído em ${item.quantity}.`);
+              }
+            }
+          }
         }
       }
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
-    // Para outros tipos de webhook, apenas logar
-    console.log('Webhook de tipo não tratado:', type);
-    
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response('Webhook recebido', { status: 200 });
   } catch (error) {
     console.error('Erro no webhook:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Erro interno do servidor' 
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(`Erro no webhook: ${error.message}`, { status: 500 });
   }
 });
