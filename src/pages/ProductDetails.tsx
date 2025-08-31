@@ -88,6 +88,7 @@ const ProductDetails = () => {
         name: data.name,
         price: Number(data.price),
         originalPrice: data.original_price ? Number(data.original_price) : undefined,
+        // CORRIGIDO: Adiciona o fallback para a imagem principal
         image: data.images?.[0] || categoryImages[data.category as keyof typeof categoryImages],
         images: data.images || [],
         category: data.category,
@@ -235,6 +236,7 @@ const ProductDetails = () => {
           {/* Product Images */}
           <div className="space-y-4">
             <div className="aspect-square overflow-hidden rounded-lg bg-muted">
+              {/* CORRIGIDO: Exibir a imagem correta, com fallback se a array de imagens estiver vazia */}
               <img
                 src={product.images?.[selectedImageIndex] || product.image}
                 alt={product.name}
@@ -450,8 +452,23 @@ const ProductDetails = () => {
                   isNew={relatedProduct.isNew}
                   isFeatured={relatedProduct.isFeatured}
                   colors={relatedProduct.colors}
-                  // NOVO: Adicionado showActions={false} para remover o botão e o seletor
-                  showActions={false}
+                  onAddToCart={(selectedSize: string) => {
+                    if (!isAuthenticated) {
+                      toast({
+                        title: 'Login necessário',
+                        description: 'Você precisa estar logado para adicionar itens ao carrinho.',
+                        variant: 'destructive',
+                      });
+                      return;
+                    }
+                    const success = addToCart(relatedProduct, selectedSize);
+                    if (success) {
+                      toast({
+                        title: 'Produto adicionado!',
+                        description: `${relatedProduct.name} foi adicionado ao seu carrinho.`,
+                      });
+                    }
+                  }}
                 />
               ))}
             </div>
