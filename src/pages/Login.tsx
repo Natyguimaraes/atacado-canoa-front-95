@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,15 +43,6 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="mb-6">
-          <Button variant="ghost" asChild className="mb-4">
-            <Link to="/" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Voltar para Home
-            </Link>
-          </Button>
-        </div>
-        
         <Card className="shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="font-display text-2xl text-primary">

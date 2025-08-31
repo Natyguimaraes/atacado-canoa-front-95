@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { ArrowRight, Star, Users, Truck, Shield, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,55 +11,81 @@ import { CartDebug } from '@/components/CartDebug';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import heroImage from '@/assets/hero-store.jpg';
 import babyClothes from '@/assets/baby-clothes.jpg';
 import kidsClothes from '@/assets/kids-clothes.jpg';
 import adultClothes from '@/assets/adult-clothes.jpg';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  category: string;
+  sizes: string[];
+  colors: string[];
+  isNew: boolean;
+  isFeatured: boolean;
+  description?: string;
+}
 
 const Home = () => {
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
 
-  // Mock products data
-  const featuredProducts = [
-    {
-      id: '1',
-      name: 'Conjunto Bebê Menino Básico',
-      price: 24.90,
-      originalPrice: 39.90,
-      image: babyClothes,
-      category: 'Bebê',
-      sizes: ['P', 'M', 'G'],
-      isNew: true,
-    },
-    {
-      id: '2',
-      name: 'Vestido Infantil Floral',
-      price: 32.50,
-      image: kidsClothes,
-      category: 'Infantil',
-      sizes: ['2', '4', '6', '8', '10'],
-    },
-    {
-      id: '3',
-      name: 'Camiseta Adulto Premium',
-      price: 19.90,
-      originalPrice: 29.90,
-      image: adultClothes,
-      category: 'Adulto',
-      sizes: ['P', 'M', 'G', 'GG'],
-    },
-    {
-      id: '4',
-      name: 'Macacão Bebê Unissex',
-      price: 28.90,
-      image: babyClothes,
-      category: 'Bebê',
-      sizes: ['RN', 'P', 'M'],
-      isNew: true,
-    },
-  ];
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Mapeamento de imagens para categorias caso não haja imagem principal
+  const categoryImages = {
+    bebe: babyClothes,
+    infantil: kidsClothes,
+    adulto: adultClothes,
+  };
+
+  const fetchFeaturedProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .eq('is_featured', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching featured products:', error);
+        return;
+      }
+
+      const transformedProducts: Product[] = data?.map(product => ({
+        id: product.id,
+        name: product.name,
+        price: Number(product.price),
+        originalPrice: product.original_price ? Number(product.original_price) : undefined,
+        image: product.images?.[0] || categoryImages[product.category as keyof typeof categoryImages],
+        category: product.category,
+        sizes: product.sizes,
+        colors: product.colors,
+        isNew: product.is_new,
+        isFeatured: product.is_featured,
+        description: product.description,
+      })) || [];
+
+      setFeaturedProducts(transformedProducts);
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // CORRIGIDO: Recarrega os dados ao entrar na página
+    fetchFeaturedProducts();
+  }, []);
 
   const categories = [
     {
@@ -202,31 +229,36 @@ const Home = () => {
               </p>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredProducts.map((product) => (
-                <ProductCard 
-                  key={product.id} 
-                  {...product} 
-                  onAddToCart={(size) => {
-                    if (!isAuthenticated) {
-                      toast({
-                        title: 'Login necessário',
-                        description: 'Você precisa estar logado para adicionar itens ao carrinho.',
-                        variant: 'destructive',
-                      });
-                      return;
-                    }
-                    const success = addToCart(product, size);
-                    if (success) {
-                      toast({
-                        title: 'Produto adicionado!',
-                        description: `${product.name} foi adicionado ao seu carrinho.`,
-                      });
-                    }
-                  }}
-                />
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[...Array(4)].map((_, index) => (
+                  <div key={index} className="animate-pulse">
+                    <div className="bg-muted rounded-lg aspect-[4/5] mb-4"></div>
+                    <div className="h-4 bg-muted rounded mb-2 w-3/4"></div>
+                    <div className="h-4 bg-muted rounded w-1/2"></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {featuredProducts.map((product) => (
+                  <ProductCard 
+                    key={product.id} 
+                    id={product.id}
+                    name={product.name}
+                    price={product.price}
+                    originalPrice={product.originalPrice}
+                    image={product.image}
+                    category={product.category}
+                    sizes={product.sizes}
+                    isNew={product.isNew}
+                    isFeatured={product.isFeatured}
+                    colors={product.colors}
+                    showActions={false}
+                  />
+                ))}
+              </div>
+            )}
             
             <div className="text-center mt-12">
               <Button size="lg" variant="outline" asChild>
@@ -319,15 +351,6 @@ const Home = () => {
                   </div>
                 </div>
               </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* Debug Section - Remove in production */}
-        <section className="py-8 bg-muted/20">
-          <div className="container mx-auto px-4">
-            <div className="flex justify-center">
-              <CartDebug />
             </div>
           </div>
         </section>

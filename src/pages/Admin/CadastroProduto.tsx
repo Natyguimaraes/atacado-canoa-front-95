@@ -192,8 +192,11 @@ const CadastroProduto = () => {
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>
               <Link to="/admin/dashboard" className="flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Voltar ao Dashboard
+                {/* CORRIGIDO: Envolvido o ícone e o texto num span */}
+                <span>
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar ao Dashboard
+                </span>
               </Link>
             </Button>
             <h1 className="font-display text-2xl font-bold text-primary">

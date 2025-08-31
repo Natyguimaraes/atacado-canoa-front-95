@@ -15,6 +15,11 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 
+// Importa as imagens padrão para o fallback
+import babyClothes from '@/assets/baby-clothes.jpg';
+import kidsClothes from '@/assets/kids-clothes.jpg';
+import adultClothes from '@/assets/adult-clothes.jpg';
+
 interface Product {
   id: string;
   name: string;
@@ -32,6 +37,13 @@ interface Product {
   rating?: number;
   stock?: number;
 }
+
+// Mapeamento de imagens padrão por categoria para o fallback
+const categoryImages = {
+  bebe: babyClothes,
+  infantil: kidsClothes,
+  adulto: adultClothes,
+};
 
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -76,7 +88,7 @@ const ProductDetails = () => {
         name: data.name,
         price: Number(data.price),
         originalPrice: data.original_price ? Number(data.original_price) : undefined,
-        image: data.images?.[0] || '',
+        image: data.images?.[0] || categoryImages[data.category as keyof typeof categoryImages],
         images: data.images || [],
         category: data.category,
         sizes: data.sizes || [],
@@ -84,9 +96,9 @@ const ProductDetails = () => {
         isNew: data.is_new,
         isFeatured: data.is_featured,
         description: data.description || '',
-        brand: undefined, // Pode ser adicionado ao banco posteriormente
-        rating: 5, // Valor padrão
-        stock: 10, // Valor padrão
+        brand: undefined,
+        rating: 5,
+        stock: 10,
       };
 
       setProduct(transformedProduct);
@@ -123,7 +135,7 @@ const ProductDetails = () => {
         name: product.name,
         price: Number(product.price),
         originalPrice: product.original_price ? Number(product.original_price) : undefined,
-        image: product.images?.[0] || '',
+        image: product.images?.[0] || categoryImages[product.category as keyof typeof categoryImages],
         images: product.images || [],
         category: product.category,
         sizes: product.sizes || [],
@@ -217,19 +229,7 @@ const ProductDetails = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 mb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/produtos')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar aos produtos
-          </Button>
-        </div>
-
+        
         {/* Product Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Product Images */}
@@ -440,24 +440,18 @@ const ProductDetails = () => {
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard
                   key={relatedProduct.id}
-                  {...relatedProduct}
-                  onAddToCart={(selectedSize: string) => {
-                    if (!isAuthenticated) {
-                      toast({
-                        title: 'Login necessário',
-                        description: 'Você precisa estar logado para adicionar itens ao carrinho.',
-                        variant: 'destructive',
-                      });
-                      return;
-                    }
-                    const success = addToCart(relatedProduct, selectedSize);
-                    if (success) {
-                      toast({
-                        title: 'Produto adicionado!',
-                        description: `${relatedProduct.name} foi adicionado ao seu carrinho.`,
-                      });
-                    }
-                  }}
+                  id={relatedProduct.id}
+                  name={relatedProduct.name}
+                  price={relatedProduct.price}
+                  originalPrice={relatedProduct.originalPrice}
+                  image={relatedProduct.image}
+                  category={relatedProduct.category}
+                  sizes={relatedProduct.sizes}
+                  isNew={relatedProduct.isNew}
+                  isFeatured={relatedProduct.isFeatured}
+                  colors={relatedProduct.colors}
+                  // NOVO: Adicionado showActions={false} para remover o botão e o seletor
+                  showActions={false}
                 />
               ))}
             </div>

@@ -86,6 +86,7 @@ const Produtos = () => {
   };
 
   useEffect(() => {
+    // CORRIGIDO: Recarrega os dados ao entrar na página
     fetchProducts();
   }, []);
 
@@ -250,25 +251,17 @@ const Produtos = () => {
                 {filteredProducts.map((product) => (
                   <ProductCard 
                     key={product.id} 
-                    {...product} 
-                    // NOVO: Passar o produto e a função de adicionar ao carrinho
-                    onAddToCart={(selectedSize: string) => {
-                      if (!isAuthenticated) {
-                        toast({
-                          title: 'Login necessário',
-                          description: 'Você precisa estar logado para adicionar itens ao carrinho.',
-                          variant: 'destructive',
-                        });
-                        return;
-                      }
-                      const success = addToCart(product, selectedSize);
-                      if (success) {
-                        toast({
-                          title: 'Produto adicionado!',
-                          description: `${product.name} foi adicionado ao seu carrinho.`,
-                        });
-                      }
-                    }}
+                    id={product.id}
+                    name={product.name}
+                    price={product.price}
+                    originalPrice={product.originalPrice}
+                    image={product.image}
+                    category={product.category}
+                    sizes={product.sizes}
+                    isNew={product.isNew}
+                    isFeatured={product.isFeatured}
+                    colors={product.colors}
+                    showActions={false}
                   />
                 ))}
               </div>
@@ -296,13 +289,6 @@ const Produtos = () => {
                               {categories.find(cat => cat.value === product.category)?.label}
                             </p>
                             <h3 className="font-medium text-lg mb-2">{product.name}</h3>
-                            <div className="flex flex-wrap gap-1 mb-3">
-                              {product.sizes.map((size: string) => (
-                                <Badge key={size} variant="outline" className="text-xs">
-                                  {size}
-                                </Badge>
-                              ))}
-                            </div>
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -315,24 +301,11 @@ const Produtos = () => {
                                 </span>
                               )}
                             </div>
-                            {/* NOVO: Adicionar o onClick ao botão na visualização de lista */}
-                            <Button onClick={() => {
-                              if (!isAuthenticated) {
-                                toast({
-                                  title: 'Login necessário',
-                                  description: 'Você precisa estar logado para adicionar itens ao carrinho.',
-                                  variant: 'destructive',
-                                });
-                                return;
-                              }
-                              const success = addToCart(product, product.sizes[0]);
-                              if (success) {
-                                toast({
-                                  title: 'Produto adicionado!',
-                                  description: `${product.name} foi adicionado ao seu carrinho.`,
-                                });
-                              }
-                            }}>Adicionar ao Carrinho</Button>
+                            <Button asChild>
+                              <Link to={`/produto/${product.id}`}>
+                                Ver Detalhes
+                              </Link>
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
