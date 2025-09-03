@@ -20,16 +20,16 @@ serve(async (req) => {
       throw new Error("Dados do pedido (orderData) ou método de pagamento (paymentMethod) não foram enviados.");
     }
     
-    // Determina o ambiente (produção ou teste)
-    const isProduction = Deno.env.get('SUPABASE_URL')?.includes('supabase.co');
-
-    // Pega o Access Token correto com base no ambiente
-    const accessToken = isProduction
-      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
-      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
+    // Pega o Access Token (sempre usa o de teste para desenvolvimento)
+    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
 
     if (!accessToken) {
-      throw new Error("Access Token do Mercado Pago não configurado para o ambiente.");
+      console.error('Tokens disponíveis:', {
+        test: !!Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST'),
+        main: !!Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN'),
+        prod: !!Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
+      });
+      throw new Error("Access Token do Mercado Pago não configurado.");
     }
 
     const supabaseAdmin = createClient(

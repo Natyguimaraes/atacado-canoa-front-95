@@ -61,6 +61,7 @@ interface Product {
   images?: string[];
   sizes?: string[];
   colors?: string[];
+  stock: number;
   is_active: boolean;
   is_new: boolean;
   is_featured: boolean;

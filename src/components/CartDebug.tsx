@@ -4,21 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const CartDebug = () => {
-  const { items, addToCart, totalItems, totalPrice } = useCart();
+  const { cart, addToCart, itemCount } = useCart();
   const { user, isAuthenticated } = useAuth();
 
   const testProduct = {
     id: 'test-1',
     name: 'Produto de Teste',
     price: 29.90,
-    image: '/placeholder.svg',
-    category: 'Teste',
-    sizes: ['P', 'M', 'G'],
+    images: ['/placeholder.svg'],
+    stock: 10,
   };
 
   const handleTestAdd = () => {
-    const success = addToCart(testProduct, 'M');
-    console.log('Teste de adicionar ao carrinho:', success);
+    addToCart(testProduct, 1, 'M');
+    console.log('Teste de adicionar ao carrinho');
   };
 
   return (
@@ -30,8 +29,8 @@ export const CartDebug = () => {
         <div>
           <p><strong>Usuário logado:</strong> {isAuthenticated ? 'Sim' : 'Não'}</p>
           <p><strong>ID do usuário:</strong> {user?.id || 'N/A'}</p>
-          <p><strong>Total de itens:</strong> {totalItems}</p>
-          <p><strong>Valor total:</strong> R$ {totalPrice.toFixed(2)}</p>
+          <p><strong>Total de itens:</strong> {itemCount}</p>
+          <p><strong>Valor total:</strong> R$ {cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2)}</p>
         </div>
 
         <Button onClick={handleTestAdd} className="w-full">
@@ -40,11 +39,11 @@ export const CartDebug = () => {
 
         <div>
           <p><strong>Itens no carrinho:</strong></p>
-          {items.length === 0 ? (
+          {cart.length === 0 ? (
             <p className="text-muted-foreground">Nenhum item</p>
           ) : (
             <ul className="text-sm">
-              {items.map((item, index) => (
+              {cart.map((item, index) => (
                 <li key={index}>
                   {item.name} - {item.size} - Qty: {item.quantity}
                 </li>

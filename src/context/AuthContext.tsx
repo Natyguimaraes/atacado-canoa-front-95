@@ -9,6 +9,7 @@ interface Profile {
   full_name: string | null;
   email: string | null; 
   phone: string | null;
+  avatar_url?: string | null;
 }
 
 interface AuthContextType {
@@ -19,6 +20,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  signOut: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
 }
@@ -201,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     logout,
+    signOut: logout,
     isAuthenticated: !!user,
     isAdmin
   };
