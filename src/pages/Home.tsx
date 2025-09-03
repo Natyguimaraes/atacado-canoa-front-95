@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
-import { CartDebug } from '@/components/CartDebug';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -21,13 +20,14 @@ interface Product {
   id: string;
   name: string;
   price: number;
-  originalPrice?: number;
-  image: string;
+  original_price?: number;
+  images?: string[];
+  is_new?: boolean;
+  stock: number;
   category: string;
   sizes: string[];
   colors: string[];
-  isNew: boolean;
-  isFeatured: boolean;
+  is_featured: boolean;
   description?: string;
 }
 
@@ -39,7 +39,6 @@ const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mapeamento de imagens para categorias caso não haja imagem principal
   const categoryImages = {
     bebe: babyClothes,
     infantil: kidsClothes,
@@ -64,14 +63,15 @@ const Home = () => {
         id: product.id,
         name: product.name,
         price: Number(product.price),
-        originalPrice: product.original_price ? Number(product.original_price) : undefined,
-        image: product.images?.[0] || categoryImages[product.category as keyof typeof categoryImages],
+        original_price: product.original_price ? Number(product.original_price) : undefined,
+        images: product.images,
         category: product.category,
         sizes: product.sizes,
         colors: product.colors,
-        isNew: product.is_new,
-        isFeatured: product.is_featured,
+        is_new: product.is_new,
+        is_featured: product.is_featured,
         description: product.description,
+        stock: product.stock,
       })) || [];
 
       setFeaturedProducts(transformedProducts);
@@ -83,7 +83,6 @@ const Home = () => {
   };
 
   useEffect(() => {
-    // CORRIGIDO: Recarrega os dados ao entrar na página
     fetchFeaturedProducts();
   }, []);
 
@@ -242,20 +241,7 @@ const Home = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {featuredProducts.map((product) => (
-                  <ProductCard 
-                    key={product.id} 
-                    id={product.id}
-                    name={product.name}
-                    price={product.price}
-                    originalPrice={product.originalPrice}
-                    image={product.image}
-                    category={product.category}
-                    sizes={product.sizes}
-                    isNew={product.isNew}
-                    isFeatured={product.isFeatured}
-                    colors={product.colors}
-                    showActions={false}
-                  />
+                  <ProductCard key={product.id} product={product} />
                 ))}
               </div>
             )}

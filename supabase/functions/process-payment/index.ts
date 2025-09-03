@@ -1,80 +1,102 @@
+// supabase/functions/process-payment/index.ts
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 serve(async (req) => {
-  // CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Content-Type': 'application/json',
-  };
-
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log('=== PROCESS PAYMENT v5 ===');
-    
-    const data = await req.json();
-    console.log('Payment data received:', {
-      amount: data.transaction_amount,
-      method: data.payment_method_id,
-      has_token: !!data.token,
-      environment: data.environment,
-      payer_email: data.payer?.email,
-      full_data: JSON.stringify(data, null, 2)
-    });
+    const { orderData, paymentMethod, paymentData } = await req.json();
 
-    // Get access token based on environment
-    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    if (!orderData || !paymentMethod) {
+      throw new Error("Dados do pedido (orderData) ou método de pagamento (paymentMethod) não foram enviados.");
+    }
     
-    console.log('Environment: test (fixed)');
-    console.log('Using production credentials: false');
-    console.log('Access token exists:', !!accessToken);
-    console.log('Access token prefix:', accessToken ? accessToken.substring(0, 20) + '...' : 'NONE');
-    
+    // Determina o ambiente (produção ou teste)
+    const isProduction = Deno.env.get('SUPABASE_URL')?.includes('supabase.co');
+
+    // Pega o Access Token correto com base no ambiente
+    const accessToken = isProduction
+      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
+      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
+
     if (!accessToken) {
-      console.log('ERROR: Access token not found');
-      console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(key => key.includes('MERCADO')));
-      return new Response(JSON.stringify({ 
-        error: 'Access token not configured',
-        environment: 'test',
-        debug: 'No access token found'
-      }), { status: 400, headers });
+      throw new Error("Access Token do Mercado Pago não configurado para o ambiente.");
     }
 
-    // Validação do formato do access token
-    const isValidFormat = (
-      accessToken.startsWith('APP_USR-') || // Production tokens
-      accessToken.startsWith('TEST-') ||     // Test tokens
-      accessToken.startsWith('APP-')         // Alternative production format
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
-    
-    if (!isValidFormat) {
-      console.log('Invalid access token format. Expected: APP_USR-, TEST-, or APP-');
-      console.log('Received token prefix:', accessToken.substring(0, 15) + '...');
-      return new Response(JSON.stringify({ 
-        error: 'Invalid access token format',
-        expected_formats: ['APP_USR-', 'TEST-', 'APP-'],
-        received_prefix: accessToken.substring(0, 10) + '...'
-      }), { status: 400, headers });
-    }
 
-    console.log('Calling MP payments API...');
+    const { data: order, error: orderError } = await supabaseAdmin.from('orders').insert({
+      user_id: orderData.user_id,
+      items: orderData.items,
+      total_amount: orderData.total_amount,
+      shipping_data: orderData.shipping_data,
+      payment_method: paymentMethod.toUpperCase(),
+      status: 'PENDING'
+    }).select().single();
+
+    if (orderError) throw new Error(`Erro ao criar o pedido: ${orderError.message}`);
     
-    // Remover campos que o MP não aceita (environment não é um campo válido do MP)
-    const { user_id, order_id, environment, ...cleanData } = data;
-    
-    // Adicionar notification_url para webhook
-    const paymentDataWithWebhook = {
-      ...cleanData,
-      notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercado-pago-webhook`
+    const notificationUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercado-pago-webhook`;
+    let mercadoPagoPayload;
+
+    // Constrói os objetos 'payer'
+    const fullName = orderData.shipping_data?.fullName || 'Cliente Teste';
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Sobrenome';
+
+    const pixPayer = {
+        email: 'test_user_39528437@testuser.com',
+        first_name: firstName,
+        last_name: lastName,
+        identification: { type: 'CPF', number: '12345678909' }
     };
     
-    console.log('Clean data to send to MP:', JSON.stringify(paymentDataWithWebhook, null, 2));
-    console.log('Access token starts with:', accessToken.substring(0, 15) + '...');
-    
-    // Chamar Mercado Pago
+    const cardPayer = {
+        email: 'test_user_39528437@testuser.com',
+        identification: { type: 'CPF', number: '12345678909' }
+    };
+
+    if (paymentMethod === 'pix') {
+      mercadoPagoPayload = {
+        transaction_amount: Number(orderData.total_amount),
+        description: `Pedido #${order.id}`,
+        payment_method_id: 'pix',
+        payer: pixPayer,
+        external_reference: order.id.toString(),
+        notification_url: notificationUrl,
+      };
+    } else if (paymentMethod === 'credit') {
+      if (!paymentData || !paymentData.token) {
+        throw new Error("Dados do pagamento com cartão (paymentData) não foram enviados.");
+      }
+      mercadoPagoPayload = {
+        transaction_amount: Number(orderData.total_amount),
+        description: `Pedido #${order.id}`,
+        token: paymentData.token,
+        issuer_id: paymentData.issuer_id,
+        payment_method_id: paymentData.payment_method_id,
+        installments: paymentData.installments,
+        payer: cardPayer,
+        external_reference: order.id.toString(),
+        notification_url: notificationUrl,
+      };
+    } else {
+      throw new Error("Método de pagamento não suportado.");
+    }
+
     const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
@@ -82,162 +104,39 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': crypto.randomUUID(),
       },
-      body: JSON.stringify(paymentDataWithWebhook),
+      body: JSON.stringify(mercadoPagoPayload),
     });
 
-    const result = await response.json();
-    console.log('MP payment response status:', response.status);
-    console.log('MP payment response headers:', Object.fromEntries(response.headers.entries()));
-    console.log('MP payment response:', JSON.stringify(result, null, 2));
-
+    const paymentResponse = await response.json();
     if (!response.ok) {
-      console.log('MP payment error, returning detailed error');
-      
-      // Log detalhado do erro
-      if (result.message === 'internal_error') {
-        console.log('MERCADO PAGO INTERNAL ERROR DETECTED');
-        console.log('Possible causes:');
-        console.log('1. Access token invalid or expired');
-        console.log('2. Request format not accepted'); 
-        console.log('3. MP service temporarily unavailable');
-        console.log('4. Account configuration issue');
-        console.log('5. Sandbox account not properly configured');
-        console.log('6. Missing required fields in request');
-        
-        // Log específico para depuração
-        console.log('Current access token prefix:', accessToken.substring(0, 20) + '...');
-        console.log('Request payload:', JSON.stringify(cleanData, null, 2));
-        console.log('MP Response headers:', Object.fromEntries(response.headers.entries()));
-        
-        // Verificar se há details no erro
-        if (result.cause && Array.isArray(result.cause)) {
-          console.log('Error causes:', JSON.stringify(result.cause, null, 2));
-        }
-        
-        // Tentar usar credentials diferentes para teste
-        if (accessToken.startsWith('TEST-')) {
-          console.log('Using TEST credentials - check sandbox account configuration');
-          console.log('Ensure the TEST user has proper permissions and account setup');
-        }
-      }
-      
-      const errorBody = {
-        error: 'Mercado Pago payment error', 
-        mp_error: result,
-        status: response.status,
-        statusText: response.statusText,
-        request_data: cleanData // Adicionar dados da request para debug
-      };
-      console.log('Payment error details:', JSON.stringify(errorBody, null, 2));
-      return new Response(JSON.stringify(errorBody), { 
-        status: 200, // Mudando para 200 para que o frontend receba os detalhes
-        headers 
-      });
+      console.error("Detalhe do erro do Mercado Pago:", paymentResponse);
+      throw new Error(`[Mercado Pago] ${paymentResponse.message || 'Erro desconhecido.'}`);
     }
 
-    // Resposta básica
-    let responseData = {
-      id: result.id,
-      status: result.status,
-      status_detail: result.status_detail,
-      transaction_amount: result.transaction_amount,
-      payment_method_id: result.payment_method_id,
-    };
-
-    // Para PIX, adicionar QR code e dados extras
-    if (data.payment_method_id === 'pix' && result.point_of_interaction) {
-      responseData = {
-        ...responseData,
-        point_of_interaction: result.point_of_interaction,
-        date_of_expiration: result.date_of_expiration,
-        pix_qr_code: result.point_of_interaction.transaction_data.qr_code,
-        pix_qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
-      };
-    }
-
-    // Para cartão, adicionar dados extras
-    if (data.payment_method_id !== 'pix') {
-      responseData = {
-        ...responseData,
-        installments: result.installments,
-        payment_method: result.payment_method,
-      };
-    }
-
-    // Conectar ao Supabase para salvar o pagamento
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase credentials not found');
-      return new Response(JSON.stringify(responseData), { headers });
-    }
-
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Salvar registro do pagamento
-    const paymentRecord = {
-      user_id: data.user_id,
-      order_id: data.order_id,
-      external_id: result.id.toString(),
-      amount: result.transaction_amount,
-      method: result.payment_method_id.toUpperCase(),
-      status: result.status?.toUpperCase() || 'PENDING',
+    await supabaseAdmin.from('payments').insert({
+      user_id: orderData.user_id,
+      order_id: order.id,
+      external_id: paymentResponse.id.toString(),
+      amount: paymentResponse.transaction_amount,
+      method: paymentMethod.toUpperCase(),
+      status: paymentResponse.status?.toUpperCase() || 'PENDING',
       provider: 'MERCADO_PAGO',
-      paid_at: result.status === 'approved' ? new Date().toISOString() : null,
-      metadata: data.payment_method_id === 'pix' ? {
-        qrCode: result.point_of_interaction?.transaction_data?.qr_code,
-        qrCodeBase64: result.point_of_interaction?.transaction_data?.qr_code_base64,
-        expirationDate: result.date_of_expiration,
-        ticketUrl: result.point_of_interaction?.transaction_data?.ticket_url
-      } : {
-        installments: result.installments,
-        payment_method: result.payment_method_id,
-        status_detail: result.status_detail
-      }
-    };
+      metadata: paymentMethod === 'pix' ? paymentResponse.point_of_interaction?.transaction_data : {
+        last_four_digits: paymentResponse.card?.last_four_digits,
+        cardholder_name: paymentResponse.card?.cardholder?.name,
+      },
+    });
 
-    console.log('Saving payment record:', paymentRecord);
-
-    const { data: savedPayment, error: paymentError } = await supabase
-      .from('payments')
-      .insert(paymentRecord)
-      .select()
-      .single();
-
-    if (paymentError) {
-      console.error('Error saving payment:', paymentError);
-    } else {
-      console.log('Payment saved successfully:', savedPayment);
-      
-      // Atualizar pedido com payment_id
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update({ 
-          payment_id: savedPayment.id,
-          status: result.status === 'approved' ? 'paid' : 'pending'
-        })
-        .eq('id', data.order_id);
-
-      if (orderError) {
-        console.error('Error updating order:', orderError);
-      } else {
-        console.log('Order updated with payment_id');
-      }
-    }
-
-    console.log('Success, returning payment result');
-    return new Response(JSON.stringify(responseData), { headers });
+    return new Response(JSON.stringify(paymentResponse), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
 
   } catch (error) {
-    console.error('CATCH ERROR:', error.message);
-    console.error('ERROR STACK:', error.stack);
-    
-    return new Response(JSON.stringify({ 
-      error: 'Internal server error',
-      message: error.message,
-      stack: error.stack
-    }), { status: 500, headers });
+    console.error('!!! ERRO FATAL NA FUNÇÃO !!!:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
   }
 });

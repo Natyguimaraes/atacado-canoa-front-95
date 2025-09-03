@@ -1,77 +1,75 @@
-import { serve } from 'std/http/server.ts';
-import { createClient } from 'supabase-js';
-import { MercadoPagoConfig, Payment } from 'mercadopago';
+// supabase/functions/mercado-pago-webhook/index.ts
 
-// Inicialização do cliente do Mercado Pago
-const client = new MercadoPagoConfig({ accessToken: Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')! });
-const payment = new Payment(client);
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Crie o cliente Supabase fora do handler para reutilização
+const supabaseAdmin = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+);
 
 serve(async (req) => {
-  const { type, data } = await req.json();
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}` } } }
-    );
+    const notification = await req.json();
+    console.log("--> Webhook do Mercado Pago recebido:", JSON.stringify(notification, null, 2));
 
-    if (type === 'payment') {
-      const paymentData = await payment.get({ id: data.id });
-      console.log('Webhook de pagamento recebido:', paymentData);
+    // A notificação do Mercado Pago só nos diz o ID do pagamento que mudou.
+    if (notification.type === 'payment' && notification.data && notification.data.id) {
+      const paymentId = notification.data.id;
 
-      // Encontrar o pedido associado a este pagamento
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('mp_payment_id', paymentData.id)
-        .single();
-      
-      if (orderError || !order) {
-        console.error(`Pedido não encontrado para o pagamento ID: ${paymentData.id}`);
-        return new Response('Pedido não encontrado', { status: 404 });
+      // Com o ID, nós buscamos os detalhes completos do pagamento na API do Mercado Pago.
+      const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+      if (!accessToken) throw new Error("MERCADO_PAGO_ACCESS_TOKEN não configurado.");
+
+      const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar detalhes do pagamento ${paymentId} no Mercado Pago.`);
       }
 
-      // Se o pagamento foi aprovado, atualize o status do pedido e diminua o estoque
-      if (paymentData.status === 'approved') {
-        const { error: orderUpdateError } = await supabase
+      const paymentDetails = await response.json();
+      console.log("Detalhes completos do pagamento:", JSON.stringify(paymentDetails, null, 2));
+
+      const orderId = paymentDetails.external_reference; // Este é o ID do nosso pedido
+      const newStatus = paymentDetails.status?.toUpperCase(); // Ex: APPROVED, REJECTED
+
+      if (orderId && newStatus) {
+        // Atualizamos o status na nossa tabela 'orders'
+        const { error: orderUpdateError } = await supabaseAdmin
           .from('orders')
-          .update({
-            status: 'paid',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', order.id);
+          .update({ status: newStatus })
+          .eq('id', orderId);
 
         if (orderUpdateError) {
-          console.error('Erro ao atualizar status do pedido:', orderUpdateError);
-        } else {
-          console.log(`Pedido ${order.id} atualizado para status "paid".`);
+          throw new Error(`Erro ao atualizar o pedido ${orderId}: ${orderUpdateError.message}`);
         }
+        console.log(`Pedido ${orderId} atualizado para o status ${newStatus}.`);
 
-        // --- LÓGICA DE DIMINUIÇÃO DE ESTOQUE ---
-        if (Array.isArray(order.items)) {
-          console.log(`Iniciando baixa de estoque para o pedido: ${order.id}`);
-          for (const item of order.items) {
-            if (item.product_id && item.quantity) {
-              const { error: stockError } = await supabase.rpc('decrease_stock', {
-                product_id_to_update: item.product_id,
-                quantity_to_decrease: item.quantity
-              });
-
-              if (stockError) {
-                console.error(`Erro ao diminuir estoque do produto ${item.product_id}:`, stockError);
-              } else {
-                console.log(`Estoque do produto ${item.product_id} diminuído em ${item.quantity}.`);
-              }
-            }
-          }
-        }
+        // Também atualizamos o status na nossa tabela 'payments'
+        await supabaseAdmin
+          .from('payments')
+          .update({ status: newStatus })
+          .eq('external_id', paymentId.toString());
       }
     }
 
-    return new Response('Webhook recebido', { status: 200 });
+    // Respondemos 200 OK para dizer ao Mercado Pago que recebemos a notificação com sucesso.
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
+
   } catch (error) {
-    console.error('Erro no webhook:', error);
-    return new Response(`Erro no webhook: ${error.message}`, { status: 500 });
+    console.error('!!! ERRO NO WEBHOOK !!!:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 });
