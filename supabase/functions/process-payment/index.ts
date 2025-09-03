@@ -56,16 +56,17 @@ serve(async (req) => {
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Sobrenome';
+    const userEmail = orderData.shipping_data?.email || 'test_user_39528437@testuser.com';
 
     const pixPayer = {
-        email: 'test_user_39528437@testuser.com',
+        email: userEmail,
         first_name: firstName,
         last_name: lastName,
         identification: { type: 'CPF', number: '12345678909' }
     };
     
     const cardPayer = {
-        email: 'test_user_39528437@testuser.com',
+        email: userEmail,
         identification: { type: 'CPF', number: '12345678909' }
     };
 

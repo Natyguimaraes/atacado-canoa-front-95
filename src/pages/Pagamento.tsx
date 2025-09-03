@@ -211,7 +211,7 @@ const Pagamento = () => {
                       ) : (
                         <CardPaymentForm
                           amount={orderTotal}
-                          payerEmail="test_user_39528437@testuser.com"
+                          payerEmail={shippingData.email}
                           onPaymentReady={(data) => {
                             cardPaymentDataRef.current = data;
                             setIsCardDataReady(true);
