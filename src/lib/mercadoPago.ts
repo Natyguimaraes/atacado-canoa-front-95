@@ -29,9 +29,9 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
     }
 
     cachedConfig = {
-      environment: 'test',
-      isProduction: false,
-      isTest: true,
+      environment: data.environment === 'production' ? 'production' : 'test',
+      isProduction: data.environment === 'production',
+      isTest: data.environment !== 'production',
       publicKey: data.publicKey,
       accessToken: '', // Não usado no frontend
     };

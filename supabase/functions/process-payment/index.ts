@@ -20,8 +20,13 @@ serve(async (req) => {
       throw new Error("Dados do pedido (orderData) ou método de pagamento (paymentMethod) não foram enviados.");
     }
     
-    // Pega o Access Token (sempre usa o de teste para desenvolvimento)
-    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    // Determina o ambiente baseado na URL do Supabase
+    const isProduction = Deno.env.get('SUPABASE_URL')?.includes('supabase.co');
+    
+    // Usa o Access Token apropriado para o ambiente
+    const accessToken = isProduction
+      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
+      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
 
     if (!accessToken) {
       console.error('Tokens disponíveis:', {

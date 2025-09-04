@@ -13,17 +13,24 @@ serve(async (req) => {
   }
 
   try {
-    // Pega a chave pública de teste (sempre usar teste para desenvolvimento)
-    const publicKey = Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_TEST') || Deno.env.get('MERCADO_PAGO_PUBLIC_KEY');
+    // A SUPABASE_URL é definida automaticamente no ambiente de produção do Supabase.
+    // Se ela existir e não for a URL local, consideramos que é produção.
+    const isProduction = Deno.env.get('SUPABASE_URL')?.includes('supabase.co');
+
+    const publicKey = isProduction
+      ? Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_PROD')
+      : Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_TEST');
 
     if (!publicKey) {
-      throw new Error("Chave pública do Mercado Pago não configurada.");
+      throw new Error('Chave pública do Mercado Pago não configurada para o ambiente atual.');
     }
 
-    return new Response(JSON.stringify({ 
-      publicKey: publicKey,
-      environment: 'test' 
-    }), {
+    return new Response(
+      JSON.stringify({
+        publicKey: publicKey,
+        environment: isProduction ? 'production' : 'development',
+      }),
+      {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
