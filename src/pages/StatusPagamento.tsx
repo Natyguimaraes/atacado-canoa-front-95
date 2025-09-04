@@ -20,6 +20,7 @@ import { TPaymentStatus, PixPaymentMetadata } from "@/types/payment";
 import { isAfter } from "date-fns";
 import { StatusScreen, initMercadoPago } from "@mercadopago/sdk-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getEnvironmentConfig } from "@/lib/mercadoPago";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -28,7 +29,8 @@ export default function StatusPagamento() {
   const paymentId = params.id as string;
 
   // Inicializa o SDK do Mercado Pago com a chave pública do ambiente
-  initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
+  const { publicKey } = getEnvironmentConfig();
+  initMercadoPago(publicKey);
 
   const { data: paymentResult, isPending, error } = useQuery({
     queryKey: ["payment", paymentId],
