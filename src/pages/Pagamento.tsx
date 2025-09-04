@@ -40,13 +40,30 @@ const Pagamento = () => {
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit'>('pix');
+  const [mpInitialized, setMpInitialized] = useState(false);
   
   const cardPaymentDataRef = useRef<any>(null);
   const [isCardDataReady, setIsCardDataReady] = useState(false);
 
-  // Inicializa o SDK do Mercado Pago com a chave pública do ambiente
-  const { publicKey } = getEnvironmentConfig();
-  initMercadoPago(publicKey, { locale: 'pt-BR' });
+  // Inicializa o SDK do Mercado Pago
+  useEffect(() => {
+    const initializeMercadoPago = async () => {
+      try {
+        const config = await getEnvironmentConfig();
+        initMercadoPago(config.publicKey, { locale: 'pt-BR' });
+        setMpInitialized(true);
+      } catch (error) {
+        console.error('Erro ao inicializar Mercado Pago:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao carregar configurações de pagamento",
+          variant: "destructive",
+        });
+      }
+    };
+
+    initializeMercadoPago();
+  }, [toast]);
 
   const [shippingData, setShippingData] = useState<ShippingData>({
     fullName: user?.user_metadata?.full_name || '',
