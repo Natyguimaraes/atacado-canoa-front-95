@@ -15,6 +15,7 @@ import Footer from '@/components/Footer';
 import { processPayment } from '@/services/paymentService';
 import CardPaymentForm from '@/components/CardPaymentForm';
 import { initMercadoPago } from '@mercadopago/sdk-react';
+import { getEnvironmentConfig } from '@/lib/mercadoPago';
 
 // Interfaces
 interface ShippingData {
@@ -44,7 +45,8 @@ const Pagamento = () => {
   const [isCardDataReady, setIsCardDataReady] = useState(false);
 
   // Inicializa o SDK do Mercado Pago com a chave pública do ambiente
-  initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
+  const { publicKey } = getEnvironmentConfig();
+  initMercadoPago(publicKey, { locale: 'pt-BR' });
 
   const [shippingData, setShippingData] = useState<ShippingData>({
     fullName: user?.user_metadata?.full_name || '',
