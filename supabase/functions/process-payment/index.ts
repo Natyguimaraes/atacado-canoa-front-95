@@ -56,7 +56,11 @@ serve(async (req) => {
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Sobrenome';
-    const userEmail = orderData.shipping_data?.email || 'test_user_39528437@testuser.com';
+    const userEmail = orderData.shipping_data?.email;
+
+    if (!userEmail) {
+      throw new Error("E-mail é obrigatório para processar o pagamento.");
+    }
 
     const pixPayer = {
         email: userEmail,
