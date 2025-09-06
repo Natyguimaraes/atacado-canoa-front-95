@@ -30,21 +30,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { orderData, paymentMethod, paymentData } = req.body;
     const idempotencyKey = req.headers['x-idempotency-key'] as string;
 
-    // Verificar idempotência
-    if (idempotencyKey) {
-      const { data: existingPayment } = await supabase
-        .from('payment_idempotency')
-        .select('*')
-        .eq('idempotency_key', idempotencyKey)
-        .single();
+    // Verificar se idempotency key está presente
+    if (!idempotencyKey) {
+      return res.status(400).json({ error: 'Header X-Idempotency-Key é obrigatório' });
+    }
 
-      if (existingPayment) {
-        return res.status(200).json({
-          id: existingPayment.external_id,
-          status: 'duplicate',
-          message: 'Pagamento já processado'
-        });
-      }
+    // Verificar idempotência
+    const { data: existingPayment } = await supabase
+      .from('payment_idempotency')
+      .select('*')
+      .eq('idempotency_key', idempotencyKey)
+      .single();
+
+    if (existingPayment) {
+      return res.status(200).json({
+        id: existingPayment.external_id,
+        status: 'duplicate',
+        message: 'Pagamento já processado'
+      });
     }
 
     // Determinar token do Mercado Pago baseado no ambiente
