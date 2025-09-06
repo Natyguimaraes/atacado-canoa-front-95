@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import CPFInput from '@/components/CPFInput';
+import { validateCpf } from '@/utils/cpfUtils';
 
 const Configuracoes = () => {
 
@@ -40,6 +42,7 @@ const Configuracoes = () => {
   };
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [cpf, setCpf] = useState('');
   const [address, setAddress] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
@@ -55,6 +58,7 @@ const Configuracoes = () => {
     if (profile) {
       setFullName(profile.full_name || '');
       setPhone(profile.phone || '');
+      setCpf(profile.cpf || '');
       setIsLoadingProfile(false);
     }
     
@@ -86,6 +90,16 @@ const Configuracoes = () => {
     e.preventDefault();
     if (!user) return;
 
+    // Validar CPF se fornecido
+    if (cpf && !validateCpf(cpf)) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, informe um CPF válido.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -96,6 +110,7 @@ const Configuracoes = () => {
           user_id: user.id,
           full_name: fullName,
           phone: phone,
+          cpf: cpf,
           email: user.email,
         }, {
           onConflict: 'user_id'
@@ -209,6 +224,13 @@ const Configuracoes = () => {
                   />
                 </div>
               </div>
+
+              <CPFInput 
+                value={cpf}
+                onChange={setCpf}
+                label="CPF"
+                showValidation
+              />
 
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Endereço de Entrega</h3>

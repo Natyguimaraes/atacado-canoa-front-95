@@ -56,27 +56,38 @@ serve(async (req) => {
     const notificationUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercado-pago-webhook`;
     let mercadoPagoPayload;
 
-    // Constrói os objetos 'payer'
-    const fullName = orderData.shipping_data?.fullName || 'Cliente Teste';
+    // Constrói os objetos 'payer' com dados reais
+    const fullName = orderData.shipping_data?.fullName || 'Cliente';
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Sobrenome';
     const userEmail = orderData.shipping_data?.email;
+    const userCpf = orderData.shipping_data?.cpf;
 
     if (!userEmail) {
       throw new Error("E-mail é obrigatório para processar o pagamento.");
+    }
+
+    if (!userCpf) {
+      throw new Error("CPF é obrigatório para processar o pagamento.");
+    }
+
+    // Validação básica do CPF (apenas formato)
+    const cpfClean = userCpf.replace(/\D/g, '');
+    if (cpfClean.length !== 11) {
+      throw new Error("CPF deve conter 11 dígitos.");
     }
 
     const pixPayer = {
         email: userEmail,
         first_name: firstName,
         last_name: lastName,
-        identification: { type: 'CPF', number: '12345678909' }
+        identification: { type: 'CPF', number: cpfClean }
     };
     
     const cardPayer = {
         email: userEmail,
-        identification: { type: 'CPF', number: '12345678909' }
+        identification: { type: 'CPF', number: cpfClean }
     };
 
     if (paymentMethod === 'pix') {

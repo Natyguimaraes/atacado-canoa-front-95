@@ -14,14 +14,18 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { processPayment } from '@/services/paymentService';
 import CardPaymentForm from '@/components/CardPaymentForm';
+import CPFInput from '@/components/CPFInput';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { getEnvironmentConfig } from '@/lib/mercadoPago';
+import { validateCpf, unformatCpf } from '@/utils/cpfUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 // Interfaces
 interface ShippingData {
   fullName: string;
   email: string;
   phone: string;
+  cpf: string;
   zipCode: string;
   address: string;
   number: string;
@@ -69,6 +73,7 @@ const Pagamento = () => {
     fullName: user?.user_metadata?.full_name || '',
     email: user?.email || '',
     phone: '',
+    cpf: '',
     zipCode: '',
     address: '',
     number: '',
@@ -77,6 +82,49 @@ const Pagamento = () => {
     city: '',
     state: ''
   });
+
+  // Carregar dados do perfil do usuário
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Erro ao carregar perfil:', error);
+          return;
+        }
+
+        if (profile) {
+          setShippingData(prev => ({
+            ...prev,
+            fullName: profile.full_name || prev.fullName,
+            phone: profile.phone || prev.phone,
+            cpf: profile.cpf || prev.cpf,
+            // Carregar endereço se salvo no perfil
+            ...(profile.address && typeof profile.address === 'object' ? {
+              address: (profile.address as any).street || prev.address,
+              number: (profile.address as any).number || prev.number,
+              complement: (profile.address as any).complement || prev.complement,
+              neighborhood: (profile.address as any).neighborhood || prev.neighborhood,
+              city: (profile.address as any).city || prev.city,
+              state: (profile.address as any).state || prev.state,
+              zipCode: (profile.address as any).zipCode || prev.zipCode,
+            } : {})
+          }));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do usuário:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, [user]);
 
   const orderTotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const formatPrice = (price: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
@@ -113,6 +161,17 @@ const Pagamento = () => {
 
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar CPF antes de prosseguir
+    if (!validateCpf(shippingData.cpf)) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe um CPF válido.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setStep('payment');
   };
 
@@ -181,6 +240,12 @@ const Pagamento = () => {
                     {/* ... (o teu formulário de entrega continua igual) ... */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2"><Label htmlFor="fullName">Nome Completo *</Label><Input id="fullName" value={shippingData.fullName} onChange={(e) => setShippingData(prev => ({...prev, fullName: e.target.value}))} required/></div>
+                      <CPFInput 
+                        value={shippingData.cpf} 
+                        onChange={(cpf) => setShippingData(prev => ({...prev, cpf}))} 
+                        required 
+                        showValidation 
+                      />
                       <div className="space-y-2"><Label htmlFor="email">E-mail *</Label><Input id="email" type="email" value={shippingData.email} onChange={(e) => setShippingData(prev => ({...prev, email: e.target.value}))} required/></div>
                       <div className="space-y-2"><Label htmlFor="phone">Telefone *</Label><Input id="phone" value={shippingData.phone} onChange={(e) => setShippingData(prev => ({...prev, phone: e.target.value}))} required/></div>
                       <div className="space-y-2"><Label htmlFor="zipCode">CEP *</Label><Input id="zipCode" value={shippingData.zipCode} onChange={handleZipCodeChange} placeholder="00000-000" maxLength={9} required/></div>

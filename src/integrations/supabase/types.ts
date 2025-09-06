@@ -47,6 +47,7 @@ export type Database = {
           payment_method: string
           shipping_data: Json
           status: string
+          total: number
           total_amount: number
           updated_at: string
           user_id: string
@@ -59,7 +60,8 @@ export type Database = {
           payment_method: string
           shipping_data: Json
           status?: string
-          total_amount: number
+          total?: number
+          total_amount?: number
           updated_at?: string
           user_id: string
         }
@@ -71,6 +73,7 @@ export type Database = {
           payment_method?: string
           shipping_data?: Json
           status?: string
+          total?: number
           total_amount?: number
           updated_at?: string
           user_id?: string
@@ -181,7 +184,7 @@ export type Database = {
           original_price: number | null
           price: number
           sizes: string[]
-          stock: number // <-- ADICIONADO AQUI
+          stock: number
           updated_at: string
         }
         Insert: {
@@ -198,7 +201,7 @@ export type Database = {
           original_price?: number | null
           price: number
           sizes?: string[]
-          stock?: number // <-- ADICIONADO AQUI
+          stock?: number
           updated_at?: string
         }
         Update: {
@@ -215,13 +218,15 @@ export type Database = {
           original_price?: number | null
           price?: number
           sizes?: string[]
-          stock?: number // <-- ADICIONADO AQUI
+          stock?: number
           updated_at?: string
         }
         Relationships: []
       }
       profiles: {
         Row: {
+          address: Json | null
+          cpf: string | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -231,6 +236,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          address?: Json | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -240,6 +247,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          address?: Json | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -276,6 +285,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decrease_stock: {
+        Args: { product_id_to_update: string; quantity_to_decrease: number }
+        Returns: undefined
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean

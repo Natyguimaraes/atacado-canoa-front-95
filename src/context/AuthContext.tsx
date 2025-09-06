@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
 interface Profile { 
@@ -9,6 +10,8 @@ interface Profile {
   full_name: string | null;
   email: string | null; 
   phone: string | null;
+  cpf: string | null;
+  address: Json | null;
   avatar_url?: string | null;
 }
 
