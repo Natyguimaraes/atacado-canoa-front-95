@@ -276,12 +276,12 @@ const Pedidos = () => {
                           {order.payment?.method === 'PIX' ? 'PIX' : 'Cartão de Crédito'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {getPaymentStatusIcon(order.payment?.status || 'pending')}
-                        <Badge variant={getPaymentStatusVariant(order.payment?.status || 'pending')}>
-                          {getPaymentStatusLabel(order.payment?.status || 'pending')}
-                        </Badge>
-                      </div>
+                       <div className="flex items-center gap-2">
+                         {getPaymentStatusIcon(order.payment?.status || order.status)}
+                         <Badge variant={getPaymentStatusVariant(order.payment?.status || order.status)}>
+                           {getPaymentStatusLabel(order.payment?.status || order.status)}
+                         </Badge>
+                       </div>
                     </div>
                   </div>
                 </CardHeader>
@@ -308,13 +308,13 @@ const Pedidos = () => {
                             <span className="text-muted-foreground">Valor Pago:</span>
                             <p className="font-semibold">{formatCurrency(order.payment.amount)}</p>
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">Status:</span>
-                            <div className="flex items-center gap-2 mt-1">
-                              {getPaymentStatusIcon(order.payment.status)}
-                              <span className="font-medium">
-                                {getPaymentStatusLabel(order.payment.status)}
-                              </span>
+                           <div>
+                             <span className="text-muted-foreground">Status:</span>
+                             <div className="flex items-center gap-2 mt-1">
+                               {getPaymentStatusIcon(order.payment.status)}
+                               <span className="font-medium">
+                                 {getPaymentStatusLabel(order.payment.status)}
+                               </span>
                             </div>
                           </div>
                         </div>
