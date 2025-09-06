@@ -106,6 +106,7 @@ serve(async (req) => {
     const paymentPayload: any = {
       transaction_amount: orderData.total_amount,
       description: `Pedido #${orderData.order_id}`,
+      external_reference: orderData.order_id, // IMPORTANTE: Para o webhook identificar o pedido
       payment_method_id: paymentMethod === 'pix' ? 'pix' : paymentData?.payment_method_id,
       payer: {
         email: orderData.customer_email,
@@ -166,8 +167,9 @@ serve(async (req) => {
     // Salvar pagamento no banco
     const paymentInsertData = {
       user_id: orderData.user_id,
+      order_id: orderData.order_id, // IMPORTANTE: Vincular ao pedido
       external_id: mpResult.id?.toString(),
-      status: mpResult.status,
+      status: mpResult.status?.toUpperCase(), // Garantir que está em maiúsculo
       amount: orderData.total_amount,
       method: paymentMethod.toUpperCase(),
       metadata: {
@@ -178,7 +180,8 @@ serve(async (req) => {
     };
 
     console.log('Inserting payment data:', { 
-      user_id: paymentInsertData.user_id, 
+      user_id: paymentInsertData.user_id,
+      order_id: paymentInsertData.order_id, 
       external_id: paymentInsertData.external_id, 
       status: paymentInsertData.status 
     });
