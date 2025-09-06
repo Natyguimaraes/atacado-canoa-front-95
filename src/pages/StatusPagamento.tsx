@@ -179,7 +179,45 @@ export default function StatusPagamento() {
         </Card>
         
         {(paymentData.status.toUpperCase() === 'PENDING' || paymentData.status.toUpperCase() === 'IN_PROCESS') && !isExpired && (
+          <>
             <StatusScreen initialization={{ paymentId: paymentData.external_id }} />
+            
+            {/* Exibir QR Code PIX se disponível */}
+            {paymentData.method === "PIX" && pixMetadata?.qrCodeBase64 && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <QrCode className="h-5 w-5" />
+                    QR Code PIX
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center space-y-4">
+                  <div className="bg-white p-4 rounded-lg inline-block">
+                    <img 
+                      src={`data:image/png;base64,${pixMetadata.qrCodeBase64}`}
+                      alt="QR Code PIX"
+                      className="w-48 h-48 mx-auto"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Escaneie o QR Code ou copie o código PIX
+                    </p>
+                    {pixMetadata.qrCode && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-xs font-mono break-all">{pixMetadata.qrCode}</p>
+                      </div>
+                    )}
+                    {pixMetadata.expirationDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Válido até: {formatDate(pixMetadata.expirationDate)}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
 
         {(paymentData.status.toUpperCase() === 'APPROVED' || paymentData.status.toUpperCase() === 'PAID') && (
