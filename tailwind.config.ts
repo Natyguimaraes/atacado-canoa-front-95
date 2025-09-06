@@ -172,17 +172,18 @@ export default {
 		require("tailwindcss-animate"),
 		function({ addUtilities }: any) {
 			const newUtilities = {
-				// Underline Animation
-				'.story-link': {
-					'@apply': 'relative inline-block after:content-[""] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left'
-				},
 				// Hover Scale Animation
 				'.hover-scale': {
-					'@apply': 'transition-transform duration-200 hover:scale-105'
+					'transition': 'transform 0.2s ease-out',
+					'&:hover': {
+						'transform': 'scale(1.05)'
+					}
 				},
 				// Glass Effect
 				'.glass': {
-					'@apply': 'bg-white/10 backdrop-blur-md border border-white/20'
+					'background': 'rgba(255, 255, 255, 0.1)',
+					'backdrop-filter': 'blur(12px)',
+					'border': '1px solid rgba(255, 255, 255, 0.2)'
 				},
 				// Shimmer Effect
 				'.shimmer': {
