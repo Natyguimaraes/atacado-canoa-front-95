@@ -43,21 +43,10 @@ const Pedidos = () => {
 
   const fetchOrdersWithPayments = async () => {
     try {
-      // Buscar pedidos com pagamentos usando o relacionamento order_id
+      // Buscar pedidos primeiro
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select(`
-          *,
-          payments!order_id (
-            id,
-            external_id,
-            status,
-            method,
-            amount,
-            created_at,
-            metadata
-          )
-        `)
+        .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
@@ -65,11 +54,27 @@ const Pedidos = () => {
         throw ordersError;
       }
 
-      // Transformar os dados para o formato esperado
-      const ordersWithPayments = ordersData?.map(order => ({
+      if (!ordersData || ordersData.length === 0) {
+        setOrders([]);
+        return;
+      }
+
+      // Buscar pagamentos relacionados aos pedidos
+      const orderIds = ordersData.map(order => order.id);
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select('*')
+        .in('order_id', orderIds);
+
+      if (paymentsError) {
+        console.error('Error fetching payments:', paymentsError);
+      }
+
+      // Combinar os dados
+      const ordersWithPayments = ordersData.map(order => ({
         ...order,
-        payment: Array.isArray(order.payments) ? order.payments[0] : order.payments
-      })) || [];
+        payment: paymentsData?.find(payment => payment.order_id === order.id) || null
+      }));
 
       setOrders(ordersWithPayments);
     } catch (error: any) {
