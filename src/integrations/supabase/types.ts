@@ -88,6 +88,7 @@ export type Database = {
           id: string
           idempotency_key: string
           payment_id: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -96,6 +97,7 @@ export type Database = {
           id?: string
           idempotency_key: string
           payment_id?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -104,6 +106,7 @@ export type Database = {
           id?: string
           idempotency_key?: string
           payment_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
