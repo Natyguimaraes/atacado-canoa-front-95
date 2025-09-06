@@ -1,77 +1,58 @@
 // src/lib/mercadoPago.ts
-/**
- * Utility functions for Mercado Pago environment detection and configuration.
- * Public keys are loaded from Supabase edge functions.
- */
 
-import { supabase } from "@/integrations/supabase/client";
-import { envManager } from '@/lib/environment';
-import { logger as mpLogger } from '@/lib/logger';
+import { logger } from '@/lib/logger';
+import { invokeSupabaseFunction } from '@/integrations/supabase/client';
 
+// Interface para definir a estrutura da configuração esperada
 interface EnvironmentConfig {
-  environment: 'production' | 'test';
-  isProduction: boolean;
-  isTest: boolean;
   publicKey: string;
-  accessToken: string;
 }
 
+// Variável para armazenar a configuração em cache na memória
 let cachedConfig: EnvironmentConfig | null = null;
 
+/**
+ * Busca a configuração do ambiente do Mercado Pago (chave pública).
+ * Primeiro, tenta usar o cache. Se não houver cache, invoca a Supabase Function.
+ * Em caso de falha, utiliza uma chave de fallback do .env para emergências.
+ * * @returns Uma promessa que resolve para a configuração contendo a `publicKey`.
+ */
 export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
+  // 1. Se já tivermos a configuração em cache, retorna ela imediatamente
   if (cachedConfig) {
+    logger.info('[App] Using cached MP configuration.');
     return cachedConfig;
   }
-
-  mpLogger.debug('Loading Mercado Pago configuration', { environment: envManager.environment });
 
   try {
-    const response = await fetch('/api/get-mp-public-key');
+    logger.info('[App] Loading MP configuration from Supabase Function...');
     
-    if (!response.ok) {
-      throw new Error('Erro ao buscar configuração do Mercado Pago');
+    // 2. Invoca a Supabase Function 'get-mp-config'
+    const { data, error } = await invokeSupabaseFunction('get-mp-config');
+
+    // Se a função retornar um erro, lança para o bloco catch
+    if (error) {
+      throw error;
     }
+
+    // Valida se a resposta contém a chave pública
+    if (!data || !data.publicKey) {
+      throw new Error('Invalid or missing publicKey in MP configuration from function.');
+    }
+
+    // 3. Armazena a configuração no cache para futuras requisições
+    cachedConfig = { publicKey: data.publicKey };
     
-    const data = await response.json();
+    logger.info('[App] MP configuration loaded successfully from Supabase.');
+    return cachedConfig;
+
+  } catch (err) {
+    logger.error('[App] Error loading MP configuration from Supabase, using fallback.', err);
     
-
-    mpLogger.info('MP configuration loaded successfully', { environment: data.environment });
-
-    cachedConfig = {
-      environment: data.environment === 'production' ? 'production' : 'test',
-      isProduction: data.environment === 'production',
-      isTest: data.environment !== 'production',
-      publicKey: data.publicKey,
-      accessToken: '', // Não usado no frontend
+    // 4. Fallback: Em caso de erro, usa a chave do arquivo .env como segurança
+    // Isso garante que o ambiente de desenvolvimento não pare de funcionar
+    return {
+      publicKey: import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY_TEST,
     };
-
-    return cachedConfig;
-  } catch (error) {
-    mpLogger.error('Error loading MP configuration, using fallback', error);
-    // Fallback para desenvolvimento local
-    cachedConfig = {
-      environment: envManager.mercadoPagoEnvironment,
-      isProduction: envManager.isProduction,
-      isTest: !envManager.isProduction,
-      publicKey: 'TEST-710ad6a1-8e41-44a1-9979-90e213360bc8', // Fallback
-      accessToken: '',
-    };
-    return cachedConfig;
   }
-};
-
-// Versão síncrona para compatibilidade
-export const getEnvironmentConfigSync = (): EnvironmentConfig => {
-  if (cachedConfig) {
-    return cachedConfig;
-  }
-  
-  // Retorna configuração de fallback se não houver cache
-  return {
-    environment: 'test',
-    isProduction: false,
-    isTest: true,
-    publicKey: 'TEST-710ad6a1-8e41-44a1-9979-90e213360bc8',
-    accessToken: '',
-  };
 };

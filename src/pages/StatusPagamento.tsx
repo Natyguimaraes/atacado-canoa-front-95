@@ -1,7 +1,7 @@
 // src/pages/StatusPagamento.tsx
 
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,41 +16,60 @@ import {
   QrCode,
   Loader2,
 } from "lucide-react";
-import { TPaymentStatus, PixPaymentMetadata } from "@/types/payment";
+import { TPaymentStatus } from "@/types/payment";
 import { isAfter } from "date-fns";
-import { StatusScreen, initMercadoPago } from "@mercadopago/sdk-react";
+import { initMercadoPago } from "@mercadopago/sdk-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getEnvironmentConfigSync } from "@/lib/mercadoPago";
+import { getEnvironmentConfig } from "@/lib/mercadoPago"; 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { logger } from "@/lib/logger";
 
 export default function StatusPagamento() {
   const params = useParams();
   const paymentId = params.id as string;
 
-  // Inicializa o SDK do Mercado Pago com a chave pública do ambiente
-  const { publicKey } = getEnvironmentConfigSync();
-  initMercadoPago(publicKey);
+  // Estado para controlar a inicialização do SDK do Mercado Pago
+  const [isMpInitialized, setIsMpInitialized] = useState(false);
 
-  const { data: paymentResult, isPending, error, refetch } = useQuery({
+  // Efeito para buscar a configuração e inicializar o SDK do Mercado Pago
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        const { publicKey } = await getEnvironmentConfig();
+        if (publicKey) {
+          initMercadoPago(publicKey);
+          setIsMpInitialized(true);
+          logger.info("Mercado Pago SDK inicializado na página de status.");
+        } else {
+          throw new Error("Chave pública do Mercado Pago não foi obtida.");
+        }
+      } catch (error) {
+        logger.error("Falha ao inicializar o SDK do Mercado Pago:", error);
+      }
+    };
+    
+    initialize();
+  }, []); // O array vazio [] garante que este efeito execute apenas uma vez
+
+  // Hook para buscar os dados do pagamento
+  const { data: paymentResult, isPending, error } = useQuery({
     queryKey: ["payment", paymentId],
     queryFn: async () => {
       if (!paymentId) throw new Error("ID do pagamento não encontrado");
       
-      // Primeiro, verificar status atualizado no Mercado Pago
+      // Tenta buscar o status mais recente do pagamento na API
       try {
         await fetch('/api/check-payment-status', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ paymentId })
         });
       } catch (checkError) {
-        console.warn('Erro ao verificar status:', checkError);
+        logger.warn('Falha ao tentar verificar status mais recente:', checkError);
       }
       
-      // Buscar por external_id ou id
+      // Busca os dados do pagamento no banco de dados do Supabase
       let { data, error } = await supabase
         .from('payments')
         .select('*')
@@ -59,9 +78,8 @@ export default function StatusPagamento() {
 
       if (error) throw error;
       
-      // Se não encontrou por external_id, tentar por id (apenas se for UUID válido)
+      // Fallback: se não encontrar por external_id, tenta pelo id principal
       if (!data) {
-        // Verificar se paymentId é um UUID válido antes de tentar buscar por id
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentId);
         if (isUUID) {
           const { data: dataById, error: errorById } = await supabase
@@ -79,9 +97,11 @@ export default function StatusPagamento() {
       
       return { status: "success", data };
     },
-    enabled: !!paymentId,
-    refetchInterval: (query) => {
-      const status = (query.state.data as any)?.data?.status;
+    // Habilita a busca apenas quando o paymentId existir e o SDK do MP estiver inicializado
+    enabled: !!paymentId && isMpInitialized, 
+    // Re-busca os dados a cada 10 segundos se o pagamento estiver pendente
+    refetchInterval: (query: any) => {
+      const status = query?.state?.data?.data?.status;
       return status === 'PENDING' || status === 'IN_PROCESS' ? 10000 : false;
     },
   });
@@ -89,7 +109,8 @@ export default function StatusPagamento() {
   const paymentData = useMemo(() => {
     return paymentResult?.data || null;
   }, [paymentResult]);
-
+    
+  // Funções de formatação e configuração de status
   const getStatusConfig = (status: TPaymentStatus) => {
     switch (status) {
         case "APPROVED":
@@ -113,8 +134,9 @@ export default function StatusPagamento() {
   const formatDate = (dateString: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(dateString));
   const isPaymentExpired = (expirationDate: string) => isAfter(new Date(), new Date(expirationDate));
 
+  // Função para renderizar o conteúdo principal
   const renderContent = () => {
-    if (isPending && !paymentData) {
+    if (!isMpInitialized || (isPending && !paymentData)) {
       return (
         <div className="text-center py-12">
           <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary mb-4" />
@@ -139,24 +161,11 @@ export default function StatusPagamento() {
     if (!paymentData) return null;
 
     const statusConfig = getStatusConfig(paymentData.status as TPaymentStatus);
-    // Acessar os metadados PIX corretamente
     const pixMetadata = paymentData.metadata as any;
     const qrCodeBase64 = pixMetadata?.qr_code_base64;
     const qrCode = pixMetadata?.qr_code;
     const expirationDate = pixMetadata?.expiration_date;
     const isExpired = expirationDate && isPaymentExpired(expirationDate);
-
-    // Debug logs
-    console.log('StatusPagamento Debug:', {
-      paymentData,
-      status: paymentData.status,
-      method: paymentData.method,
-      pixMetadata,
-      qrCodeBase64,
-      qrCode,
-      isExpired,
-      hasQrCode: !!qrCodeBase64
-    });
 
     return (
       <>
@@ -198,89 +207,47 @@ export default function StatusPagamento() {
           </CardContent>
         </Card>
         
-        {(paymentData.status.toUpperCase() === 'PENDING' || paymentData.status.toUpperCase() === 'IN_PROCESS') && !isExpired && (
-          <>
-            {/* Debug card para PIX */}
-            {paymentData.method === "PIX" && (
-              <Card className="border-blue-200 bg-blue-50 mb-4">
-                <CardHeader>
-                  <CardTitle className="text-sm text-blue-900">Debug PIX</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <pre className="text-xs overflow-auto">{JSON.stringify({ 
-                    method: paymentData.method,
-                    hasMetadata: !!pixMetadata,
-                    hasQrCode: !!qrCodeBase64,
-                    hasQrString: !!qrCode,
-                    qrCodeBase64: qrCodeBase64 ? 'presente' : 'ausente',
-                    qrCode: qrCode ? 'presente' : 'ausente'
-                  }, null, 2)}</pre>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Exibir QR Code PIX se disponível */}
-            {paymentData.method === "PIX" && qrCodeBase64 && (
-              <Card className="border-yellow-200 bg-yellow-50">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2 text-yellow-900">
-                    <QrCode className="h-5 w-5" />
-                    Pagamento PIX Pendente
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-center space-y-4">
-                  <div className="bg-white p-4 rounded-lg inline-block shadow-sm">
-                    <img 
-                      src={`data:image/png;base64,${qrCodeBase64}`}
-                      alt="QR Code PIX"
-                      className="w-48 h-48 mx-auto"
-                    />
+        {(paymentData.status.toUpperCase() === 'PENDING' || paymentData.status.toUpperCase() === 'IN_PROCESS') && !isExpired && paymentData.method === "PIX" && qrCodeBase64 && (
+          <Card className="border-yellow-200 bg-yellow-50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-yellow-900">
+                <QrCode className="h-5 w-5" />
+                Pagamento PIX Pendente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <div className="bg-white p-4 rounded-lg inline-block shadow-sm">
+                <img 
+                  src={`data:image/png;base64,${qrCodeBase64}`}
+                  alt="QR Code PIX"
+                  className="w-48 h-48 mx-auto"
+                />
+              </div>
+              <div className="space-y-3">
+                <p className="text-sm text-yellow-800 font-medium">
+                  Escaneie o QR Code ou copie o código PIX abaixo
+                </p>
+                {qrCode && (
+                  <div className="p-3 bg-white rounded-lg border">
+                    <p className="text-xs font-mono break-all text-gray-700">{qrCode}</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => navigator.clipboard.writeText(qrCode)}
+                    >
+                      Copiar Código PIX
+                    </Button>
                   </div>
-                  <div className="space-y-3">
-                    <p className="text-sm text-yellow-800 font-medium">
-                      Escaneie o QR Code ou copie o código PIX abaixo
-                    </p>
-                    {qrCode && (
-                      <div className="p-3 bg-white rounded-lg border">
-                        <p className="text-xs font-mono break-all text-gray-700">{qrCode}</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={() => navigator.clipboard.writeText(qrCode)}
-                        >
-                          Copiar Código PIX
-                        </Button>
-                      </div>
-                    )}
-                    {expirationDate && (
-                      <p className="text-xs text-yellow-700">
-                        Válido até: {formatDate(expirationDate)}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Fallback para PIX sem QR code */}
-            {paymentData.method === "PIX" && !qrCodeBase64 && (
-              <Card className="border-orange-200 bg-orange-50">
-                <CardContent className="text-center py-8">
-                  <AlertCircle className="mx-auto mb-4 h-12 w-12 text-orange-600" />
-                  <h3 className="mb-2 text-lg font-semibold text-orange-900">QR Code indisponível</h3>
-                  <p className="text-orange-700">Os dados do PIX não foram carregados corretamente. Recarregue a página.</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => window.location.reload()}
-                  >
-                    Recarregar
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </>
+                )}
+                {expirationDate && (
+                  <p className="text-xs text-yellow-700">
+                    Válido até: {formatDate(expirationDate)}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {(paymentData.status.toUpperCase() === 'APPROVED' || paymentData.status.toUpperCase() === 'PAID') && (
@@ -296,7 +263,6 @@ export default function StatusPagamento() {
     );
   };
   
-
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
         <Header />
