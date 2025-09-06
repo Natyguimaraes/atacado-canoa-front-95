@@ -180,36 +180,42 @@ export default function StatusPagamento() {
         
         {(paymentData.status.toUpperCase() === 'PENDING' || paymentData.status.toUpperCase() === 'IN_PROCESS') && !isExpired && (
           <>
-            <StatusScreen initialization={{ paymentId: paymentData.external_id }} />
-            
             {/* Exibir QR Code PIX se disponível */}
             {paymentData.method === "PIX" && pixMetadata?.qrCodeBase64 && (
-              <Card className="mt-6">
+              <Card className="border-yellow-200 bg-yellow-50">
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
+                  <CardTitle className="text-lg flex items-center gap-2 text-yellow-900">
                     <QrCode className="h-5 w-5" />
-                    QR Code PIX
+                    Pagamento PIX Pendente
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-center space-y-4">
-                  <div className="bg-white p-4 rounded-lg inline-block">
+                  <div className="bg-white p-4 rounded-lg inline-block shadow-sm">
                     <img 
                       src={`data:image/png;base64,${pixMetadata.qrCodeBase64}`}
                       alt="QR Code PIX"
                       className="w-48 h-48 mx-auto"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      Escaneie o QR Code ou copie o código PIX
+                  <div className="space-y-3">
+                    <p className="text-sm text-yellow-800 font-medium">
+                      Escaneie o QR Code ou copie o código PIX abaixo
                     </p>
                     {pixMetadata.qrCode && (
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs font-mono break-all">{pixMetadata.qrCode}</p>
+                      <div className="p-3 bg-white rounded-lg border">
+                        <p className="text-xs font-mono break-all text-gray-700">{pixMetadata.qrCode}</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2"
+                          onClick={() => navigator.clipboard.writeText(pixMetadata.qrCode)}
+                        >
+                          Copiar Código PIX
+                        </Button>
                       </div>
                     )}
                     {pixMetadata.expirationDate && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-yellow-700">
                         Válido até: {formatDate(pixMetadata.expirationDate)}
                       </p>
                     )}
