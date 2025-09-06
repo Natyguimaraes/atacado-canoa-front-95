@@ -49,9 +49,9 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
   } catch (err) {
     logger.error('[App] Error loading MP configuration from Supabase, using fallback.', err);
     
-    // Fallback sempre para teste
+    // Fallback direto para a chave do .env
     return {
-      publicKey: import.meta.env.VITE_MERCADOPAGO_TEST_KEY,
+      publicKey: "TEST-dfc36fd1-447c-4c28-ba97-740e7d046799",
     };
   }
 };

@@ -48,8 +48,8 @@ export const processPayment = async (
   // Gerar chave de idempotência
   const idempotencyKey = generateIdempotencyKey(orderData.user_id, orderData);
 
-  // Usar Supabase Edge Function em vez da API da Vercel
-  const { data, error } = await supabase.functions.invoke('process-payment', {
+  // Usar função de debug para identificar o problema
+  const { data, error } = await supabase.functions.invoke('debug-payment', {
     body: {
       orderData,
       paymentMethod,
