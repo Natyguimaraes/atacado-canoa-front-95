@@ -1,243 +1,109 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// supabase/functions/process-payment/index.ts
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-idempotency-key',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-// Função para gerar uma chave de idempotência no servidor
-const generateIdempotencyKey = (userId: string, orderData: any): string => {
-  const dataString = JSON.stringify(orderData);
-  const timestamp = Math.floor(Date.now() / 60000); // Janela de 1 minuto
-  return `${userId}-${timestamp}-${btoa(dataString).slice(0, 32)}`;
-};
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+import { getAccessToken } from '../_shared/environment.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
-
-  if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    console.log('=== PROCESS PAYMENT ===')
+    const { orderData, paymentMethod, paymentData, idempotencyKey } = await req.json();
+
+    if (!orderData || !paymentMethod || !paymentData || !idempotencyKey) {
+      throw new Error("Dados da requisição incompletos.");
+    }
     
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    let requestBody;
-    try {
-      requestBody = await req.json();
-    } catch (e) {
-      console.error('Failed to parse request body:', e);
-      return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { orderData, paymentMethod, paymentData } = requestBody;
-    
-    // Validação dos dados recebidos
-    if (!orderData || !paymentMethod) {
-      console.error('Missing required data:', { orderData: !!orderData, paymentMethod: !!paymentMethod });
-      return new Response(
-        JSON.stringify({ error: 'Missing required payment data' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Gera uma chave de idempotência se não for fornecida
-    const idempotencyKey = req.headers.get('x-idempotency-key') || generateIdempotencyKey(orderData.user_id, orderData);
-
-    console.log('Processing payment:', { 
-      userId: orderData.user_id, 
-      method: paymentMethod, 
-      amount: orderData.total_amount 
-    });
-
-    // Verificar idempotência se a chave for fornecida
-    if (idempotencyKey) {
-      const { data: existingPayment, error: idempotencyError } = await supabase
-        .from('payment_idempotency')
-        .select('*')
-        .eq('idempotency_key', idempotencyKey)
-        .maybeSingle();
-
-      if (idempotencyError) {
-        console.error('Erro ao verificar idempotência:', idempotencyError);
-      } else if (existingPayment) {
-        console.log('Payment already processed:', existingPayment.external_id);
-        return new Response(
-          JSON.stringify({
-            id: existingPayment.external_id,
-            status: 'duplicate',
-            message: 'Pagamento já processado'
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // Usar apenas credenciais de teste por enquanto para debug
-    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
-
-    console.log('Using test environment for all requests');
-
-    if (!accessToken) {
-      console.error('Missing Mercado Pago token');
-      return new Response(
-        JSON.stringify({ error: 'Token do Mercado Pago não configurado' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Criar pagamento no Mercado Pago
-    const paymentPayload: any = {
-      transaction_amount: orderData.total_amount,
-      description: `Pedido #${orderData.order_id}`,
-      external_reference: orderData.order_id, // IMPORTANTE: Para o webhook identificar o pedido
-      payment_method_id: paymentMethod === 'pix' ? 'pix' : paymentData?.payment_method_id,
-      payer: {
-        email: orderData.customer_email,
-        first_name: orderData.customer_name?.split(' ')[0] || '',
-        last_name: orderData.customer_name?.split(' ').slice(1).join(' ') || '',
-        identification: {
-          type: 'CPF',
-          number: orderData.customer_cpf?.replace(/\D/g, '') || ''
-        }
-      }
-    };
-
-    if (paymentMethod === 'credit' && paymentData) {
-      paymentPayload.token = paymentData.token;
-      paymentPayload.installments = paymentData.installments;
-      paymentPayload.issuer_id = paymentData.issuer_id;
-    }
-
-    console.log('Sending payment to Mercado Pago:', {
-      amount: paymentPayload.transaction_amount,
-      method: paymentMethod,
-      email: paymentPayload.payer.email
-    });
-
-    // Prepare headers for Mercado Pago
-    const mpHeaders = {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    }
-
-    // Add idempotency key if present
-    if (idempotencyKey) {
-      mpHeaders['X-Idempotency-Key'] = idempotencyKey
-      console.log('Adding X-Idempotency-Key to MP request:', idempotencyKey)
-    }
-
+    const accessToken = getAccessToken();
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
-      headers: mpHeaders,
-      body: JSON.stringify(paymentPayload),
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(paymentData),
     });
 
     const mpResult = await mpResponse.json();
-
-    console.log('Mercado Pago response status:', mpResponse.status);
-    console.log('Mercado Pago result:', { id: mpResult.id, status: mpResult.status });
-
     if (!mpResponse.ok) {
-      console.error('Erro do Mercado Pago:', mpResult);
-      return new Response(
-        JSON.stringify({ 
-          error: mpResult.message || 'Erro ao processar pagamento' 
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error("Erro do Mercado Pago:", mpResult);
+      throw new Error(mpResult.message || 'Erro ao processar pagamento no MP.');
     }
 
-    // Salvar pagamento no banco
-    const paymentInsertData = {
+    const paymentStatus = mpResult.status.toUpperCase();
+    console.log(`Pagamento criado no MP com ID ${mpResult.id} e status ${paymentStatus}`);
+    
+    // **CORREÇÃO CRÍTICA**: Salva o `payment_method` real vindo do Mercado Pago
+    // Para cartão, isso será 'CREDIT_CARD', e não o genérico 'CARD'
+    const finalPaymentMethod = mpResult.payment_method_id.toUpperCase();
+
+    const { data: newOrder, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: orderData.user_id,
+        items: orderData.items,
+        total_amount: orderData.total_amount,
+        status: paymentStatus,
+        payment_method: finalPaymentMethod, // Salva o método correto
+        shipping_address: orderData.shipping_address,
+        customer_name: orderData.customer_name,
+        customer_email: orderData.customer_email,
+        customer_cpf: orderData.customer_cpf,
+      })
+      .select('id')
+      .single();
+
+    if (orderError) {
+      console.error("Erro ao salvar pedido:", orderError);
+      throw new Error('Falha ao registrar o pedido no banco de dados.');
+    }
+
+    const { error: paymentError } = await supabase.from('payments').insert({
       user_id: orderData.user_id,
-      order_id: orderData.order_id, // IMPORTANTE: Vincular ao pedido
-      external_id: mpResult.id?.toString(),
-      status: mpResult.status?.toUpperCase(), // Garantir que está em maiúsculo
-      amount: orderData.total_amount,
-      method: paymentMethod.toUpperCase(),
+      order_id: newOrder.id,
+      external_id: mpResult.id.toString(), // GARANTE QUE O ID EXTERNO SEJA SALVO
+      status: paymentStatus,
+      amount: mpResult.transaction_amount,
+      method: finalPaymentMethod, // Salva o método correto também aqui
       metadata: {
         qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
         qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
-        expiration_date: mpResult.date_of_expiration
-      }
-    };
-
-    console.log('Inserting payment data:', { 
-      user_id: paymentInsertData.user_id,
-      order_id: paymentInsertData.order_id, 
-      external_id: paymentInsertData.external_id, 
-      status: paymentInsertData.status 
+        expiration_date: mpResult.date_of_expiration,
+      },
     });
 
-    const { data: insertedPayment, error: insertError } = await supabase
-      .from('payments')
-      .insert(paymentInsertData)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('Erro ao salvar pagamento:', insertError);
-      return new Response(
-        JSON.stringify({ error: 'Erro ao salvar dados do pagamento' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      console.log('Payment saved to database successfully');
+    if (paymentError) {
+      console.error("Erro ao salvar pagamento:", paymentError);
+      throw new Error('Falha ao registrar o pagamento no banco de dados.');
     }
 
-    // Salvar chave de idempotência
-    if (idempotencyKey) {
-      const { error: idempotencyInsertError } = await supabase
-        .from('payment_idempotency')
-        .insert({
-          idempotency_key: idempotencyKey,
-          user_id: orderData.user_id,
-          external_id: mpResult.id?.toString(),
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        });
-      
-      if (idempotencyInsertError) {
-        console.error('Erro ao salvar idempotência:', idempotencyInsertError);
-      } else {
-        console.log('Idempotency key saved successfully');
-      }
-    }
+    console.log(`Pedido ${newOrder.id} e Pagamento associado foram criados com status ${paymentStatus}.`);
 
-    return new Response(
-      JSON.stringify({
-        id: mpResult.id,
-        status: mpResult.status,
-        metadata: {
-          qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
-          qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
-          expiration_date: mpResult.date_of_expiration
-        }
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      paymentId: mpResult.id,
+      status: mpResult.status,
+      orderId: newOrder.id,
+      qrCode: mpResult.point_of_interaction?.transaction_data?.qr_code,
+      qrCodeBase64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
 
-  } catch (error: any) {
-    console.error('Erro no processamento:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  } catch (error) {
+    console.error("Erro fatal no processamento do pagamento:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
-})
+});

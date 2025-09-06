@@ -20,7 +20,7 @@ import { TPaymentStatus } from "@/types/payment";
 import { isAfter } from "date-fns";
 import { initMercadoPago } from "@mercadopago/sdk-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getEnvironmentConfig } from "@/lib/mercadoPago"; 
+import { getEnvironmentConfig } from "@/lib/mercadoPago";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { logger } from "@/lib/logger";
@@ -29,10 +29,9 @@ export default function StatusPagamento() {
   const params = useParams();
   const paymentId = params.id as string;
 
-  // Estado para controlar a inicialização do SDK do Mercado Pago
   const [isMpInitialized, setIsMpInitialized] = useState(false);
 
-  // Efeito para buscar a configuração e inicializar o SDK do Mercado Pago
+  // Efeito para inicializar o SDK do Mercado Pago de forma assíncrona
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -50,26 +49,16 @@ export default function StatusPagamento() {
     };
     
     initialize();
-  }, []); // O array vazio [] garante que este efeito execute apenas uma vez
+  }, []);
 
-  // Hook para buscar os dados do pagamento
   const { data: paymentResult, isPending, error } = useQuery({
     queryKey: ["payment", paymentId],
     queryFn: async () => {
       if (!paymentId) throw new Error("ID do pagamento não encontrado");
       
-      // Tenta buscar o status mais recente do pagamento na API
-      try {
-        await fetch('/api/check-payment-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ paymentId })
-        });
-      } catch (checkError) {
-        logger.warn('Falha ao tentar verificar status mais recente:', checkError);
-      }
+      // **CORREÇÃO: Chamada fetch('/api/check-payment-status') removida.**
+      // A lógica abaixo já busca os dados mais recentes do banco.
       
-      // Busca os dados do pagamento no banco de dados do Supabase
       let { data, error } = await supabase
         .from('payments')
         .select('*')
@@ -78,7 +67,6 @@ export default function StatusPagamento() {
 
       if (error) throw error;
       
-      // Fallback: se não encontrar por external_id, tenta pelo id principal
       if (!data) {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentId);
         if (isUUID) {
@@ -97,9 +85,7 @@ export default function StatusPagamento() {
       
       return { status: "success", data };
     },
-    // Habilita a busca apenas quando o paymentId existir e o SDK do MP estiver inicializado
     enabled: !!paymentId && isMpInitialized, 
-    // Re-busca os dados a cada 10 segundos se o pagamento estiver pendente
     refetchInterval: (query: any) => {
       const status = query?.state?.data?.data?.status;
       return status === 'PENDING' || status === 'IN_PROCESS' ? 10000 : false;
@@ -110,23 +96,14 @@ export default function StatusPagamento() {
     return paymentResult?.data || null;
   }, [paymentResult]);
     
-  // Funções de formatação e configuração de status
+  // Funções de formatação e helpers (sem alterações)
   const getStatusConfig = (status: TPaymentStatus) => {
     switch (status) {
-        case "APPROVED":
-        case "PAID":
-            return { color: "bg-green-100 text-green-800", icon: <CheckCircle className="h-4 w-4" />, text: "Aprovado" };
-        case "PENDING":
-        case "IN_PROCESS":
-            return { color: "bg-yellow-100 text-yellow-800", icon: <Clock className="h-4 w-4" />, text: "Pendente" };
-        case "REJECTED":
-        case "CANCELED":
-        case "FAILED":
-            return { color: "bg-red-100 text-red-800", icon: <XCircle className="h-4 w-4" />, text: status === "CANCELED" ? "Cancelado" : "Rejeitado" };
-        case "EXPIRED":
-            return { color: "bg-gray-100 text-gray-800", icon: <AlertCircle className="h-4 w-4" />, text: "Expirado" };
-        default:
-            return { color: "bg-gray-100 text-gray-800", icon: <AlertCircle className="h-4 w-4" />, text: "Desconhecido" };
+        case "APPROVED": case "PAID": return { color: "bg-green-100 text-green-800", icon: <CheckCircle className="h-4 w-4" />, text: "Aprovado" };
+        case "PENDING": case "IN_PROCESS": return { color: "bg-yellow-100 text-yellow-800", icon: <Clock className="h-4 w-4" />, text: "Pendente" };
+        case "REJECTED": case "CANCELED": case "FAILED": return { color: "bg-red-100 text-red-800", icon: <XCircle className="h-4 w-4" />, text: status === "CANCELED" ? "Cancelado" : "Rejeitado" };
+        case "EXPIRED": return { color: "bg-gray-100 text-gray-800", icon: <AlertCircle className="h-4 w-4" />, text: "Expirado" };
+        default: return { color: "bg-gray-100 text-gray-800", icon: <AlertCircle className="h-4 w-4" />, text: "Desconhecido" };
     }
   };
 
@@ -134,7 +111,7 @@ export default function StatusPagamento() {
   const formatDate = (dateString: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(dateString));
   const isPaymentExpired = (expirationDate: string) => isAfter(new Date(), new Date(expirationDate));
 
-  // Função para renderizar o conteúdo principal
+  // Renderização do conteúdo (sem alterações)
   const renderContent = () => {
     if (!isMpInitialized || (isPending && !paymentData)) {
       return (
