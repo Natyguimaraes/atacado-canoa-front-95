@@ -41,8 +41,11 @@ class EnvironmentManager {
     const isCustomDomain = !isLocalhost && !isLovablePreview;
     
     // Detectar baseado na URL do Supabase
-    const supabaseUrl = "https://lcualhkpezggwqqmlywc.supabase.co";
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://lcualhkpezggwqqmlywc.supabase.co";
     const isSupabaseProduction = supabaseUrl.includes('supabase.co');
+    
+    // Detectar Vercel
+    const isVercel = hostname.includes('vercel.app') || import.meta.env.VERCEL;
 
     let environment: Environment;
     let mercadoPagoEnvironment: 'test' | 'production';
@@ -51,6 +54,9 @@ class EnvironmentManager {
       environment = 'development';
       mercadoPagoEnvironment = 'test';
     } else if (isLovablePreview) {
+      environment = 'staging';
+      mercadoPagoEnvironment = 'test';
+    } else if (isVercel && hostname.includes('vercel.app')) {
       environment = 'staging';
       mercadoPagoEnvironment = 'test';
     } else if (isCustomDomain && isSupabaseProduction) {
@@ -68,7 +74,7 @@ class EnvironmentManager {
       environment,
       apiUrl: supabaseUrl,
       supabaseUrl,
-      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjdWFsaGtwZXpnZ3dxcW1seXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxMjM3ODMsImV4cCI6MjA3MDY5OTc4M30.GTR9N2rpBiitzTxbKeDdiSfE6rE5Ac1Vjxd7VzOUYL4",
+      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjdWFsaGtwZXpnZ3dxcW1seXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxMjM3ODMsImV4cCI6MjA3MDY5OTc4M30.GTR9N2rpBiitzTxbKeDdiSfE6rE5Ac1Vjxd7VzOUYL4",
       mercadoPagoEnvironment,
       enableDebugLogs: environment !== 'production',
       enableConsoleReports: environment === 'development',
