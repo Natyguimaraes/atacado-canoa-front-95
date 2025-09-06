@@ -1,6 +1,6 @@
 export type TPaymentMethod = "PIX" | "CARD" | "DEBIT" | "CREDIT";
 
-export type TPaymentStatus = "PENDING" | "PAID" | "CANCELED" | "EXPIRED" | "REFUNDED" | "FAILED" | "IN_PROCESS";
+export type TPaymentStatus = "PENDING" | "PAID" | "CANCELED" | "EXPIRED" | "REFUNDED" | "FAILED" | "IN_PROCESS" | "APPROVED" | "REJECTED";
 
 export type TPaymentProvider = "MERCADO_PAGO";
 

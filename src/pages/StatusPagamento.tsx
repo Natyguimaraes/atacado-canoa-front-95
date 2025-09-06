@@ -32,10 +32,19 @@ export default function StatusPagamento() {
   const { publicKey } = getEnvironmentConfigSync();
   initMercadoPago(publicKey);
 
-  const { data: paymentResult, isPending, error } = useQuery({
+  const { data: paymentResult, isPending, error, refetch } = useQuery({
     queryKey: ["payment", paymentId],
     queryFn: async () => {
       if (!paymentId) throw new Error("ID do pagamento não encontrado");
+      
+      // Primeiro, verificar status atualizado no Mercado Pago
+      try {
+        await supabase.functions.invoke('check-payment-status', {
+          body: { paymentId }
+        });
+      } catch (checkError) {
+        console.warn('Erro ao verificar status:', checkError);
+      }
       
       const { data, error } = await supabase
         .from('payments')
@@ -51,7 +60,7 @@ export default function StatusPagamento() {
     enabled: !!paymentId,
     refetchInterval: (query) => {
       const status = (query.state.data as any)?.data?.status;
-      return status === 'PENDING' || status === 'IN_PROCESS' ? 5000 : false;
+      return status === 'PENDING' || status === 'IN_PROCESS' ? 10000 : false;
     },
   });
 
@@ -61,12 +70,16 @@ export default function StatusPagamento() {
 
   const getStatusConfig = (status: TPaymentStatus) => {
     switch (status) {
+        case "APPROVED":
         case "PAID":
-      case "PENDING":
-          return { color: "bg-yellow-100 text-yellow-800", icon: <Clock className="h-4 w-4" />, text: "Pendente" };
-      case "CANCELED":
-      case "FAILED":
-          return { color: "bg-red-100 text-red-800", icon: <XCircle className="h-4 w-4" />, text: status === "CANCELED" ? "Cancelado" : "Falhou" };
+            return { color: "bg-green-100 text-green-800", icon: <CheckCircle className="h-4 w-4" />, text: "Aprovado" };
+        case "PENDING":
+        case "IN_PROCESS":
+            return { color: "bg-yellow-100 text-yellow-800", icon: <Clock className="h-4 w-4" />, text: "Pendente" };
+        case "REJECTED":
+        case "CANCELED":
+        case "FAILED":
+            return { color: "bg-red-100 text-red-800", icon: <XCircle className="h-4 w-4" />, text: status === "CANCELED" ? "Cancelado" : "Rejeitado" };
         case "EXPIRED":
             return { color: "bg-gray-100 text-gray-800", icon: <AlertCircle className="h-4 w-4" />, text: "Expirado" };
         default:
@@ -151,7 +164,7 @@ export default function StatusPagamento() {
             <StatusScreen initialization={{ paymentId: paymentData.external_id }} />
         )}
 
-        {paymentData.status.toUpperCase() === 'PAID' && (
+        {(paymentData.status.toUpperCase() === 'APPROVED' || paymentData.status.toUpperCase() === 'PAID') && (
           <Card className="border-green-200 bg-green-50">
             <CardContent className="text-center py-8">
               <CheckCircle className="mx-auto mb-4 h-16 w-16 text-green-600" />
