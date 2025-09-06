@@ -135,8 +135,12 @@ export default function StatusPagamento() {
     if (!paymentData) return null;
 
     const statusConfig = getStatusConfig(paymentData.status as TPaymentStatus);
-    const pixMetadata = paymentData.metadata as unknown as PixPaymentMetadata | null;
-    const isExpired = pixMetadata?.expirationDate && isPaymentExpired(pixMetadata.expirationDate);
+    // Acessar os metadados PIX corretamente
+    const pixMetadata = paymentData.metadata as any;
+    const qrCodeBase64 = pixMetadata?.qr_code_base64;
+    const qrCode = pixMetadata?.qr_code;
+    const expirationDate = pixMetadata?.expiration_date;
+    const isExpired = expirationDate && isPaymentExpired(expirationDate);
 
     // Debug logs
     console.log('StatusPagamento Debug:', {
@@ -144,8 +148,10 @@ export default function StatusPagamento() {
       status: paymentData.status,
       method: paymentData.method,
       pixMetadata,
+      qrCodeBase64,
+      qrCode,
       isExpired,
-      hasQrCode: !!pixMetadata?.qrCodeBase64
+      hasQrCode: !!qrCodeBase64
     });
 
     return (
@@ -200,16 +206,17 @@ export default function StatusPagamento() {
                   <pre className="text-xs overflow-auto">{JSON.stringify({ 
                     method: paymentData.method,
                     hasMetadata: !!pixMetadata,
-                    hasQrCode: !!pixMetadata?.qrCodeBase64,
-                    hasQrString: !!pixMetadata?.qrCode,
-                    metadata: pixMetadata 
+                    hasQrCode: !!qrCodeBase64,
+                    hasQrString: !!qrCode,
+                    qrCodeBase64: qrCodeBase64 ? 'presente' : 'ausente',
+                    qrCode: qrCode ? 'presente' : 'ausente'
                   }, null, 2)}</pre>
                 </CardContent>
               </Card>
             )}
 
             {/* Exibir QR Code PIX se disponível */}
-            {paymentData.method === "PIX" && pixMetadata?.qrCodeBase64 && (
+            {paymentData.method === "PIX" && qrCodeBase64 && (
               <Card className="border-yellow-200 bg-yellow-50">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2 text-yellow-900">
@@ -220,7 +227,7 @@ export default function StatusPagamento() {
                 <CardContent className="text-center space-y-4">
                   <div className="bg-white p-4 rounded-lg inline-block shadow-sm">
                     <img 
-                      src={`data:image/png;base64,${pixMetadata.qrCodeBase64}`}
+                      src={`data:image/png;base64,${qrCodeBase64}`}
                       alt="QR Code PIX"
                       className="w-48 h-48 mx-auto"
                     />
@@ -229,22 +236,22 @@ export default function StatusPagamento() {
                     <p className="text-sm text-yellow-800 font-medium">
                       Escaneie o QR Code ou copie o código PIX abaixo
                     </p>
-                    {pixMetadata.qrCode && (
+                    {qrCode && (
                       <div className="p-3 bg-white rounded-lg border">
-                        <p className="text-xs font-mono break-all text-gray-700">{pixMetadata.qrCode}</p>
+                        <p className="text-xs font-mono break-all text-gray-700">{qrCode}</p>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           className="mt-2"
-                          onClick={() => navigator.clipboard.writeText(pixMetadata.qrCode)}
+                          onClick={() => navigator.clipboard.writeText(qrCode)}
                         >
                           Copiar Código PIX
                         </Button>
                       </div>
                     )}
-                    {pixMetadata.expirationDate && (
+                    {expirationDate && (
                       <p className="text-xs text-yellow-700">
-                        Válido até: {formatDate(pixMetadata.expirationDate)}
+                        Válido até: {formatDate(expirationDate)}
                       </p>
                     )}
                   </div>
@@ -253,7 +260,7 @@ export default function StatusPagamento() {
             )}
 
             {/* Fallback para PIX sem QR code */}
-            {paymentData.method === "PIX" && !pixMetadata?.qrCodeBase64 && (
+            {paymentData.method === "PIX" && !qrCodeBase64 && (
               <Card className="border-orange-200 bg-orange-50">
                 <CardContent className="text-center py-8">
                   <AlertCircle className="mx-auto mb-4 h-12 w-12 text-orange-600" />
