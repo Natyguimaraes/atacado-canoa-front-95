@@ -14,29 +14,32 @@ serve(async (req) => {
   try {
     console.log('=== GET MP CONFIG ===')
     
-    // Parse body only for POST requests
+    // Parse body only for POST requests, default to test environment
     let environment = 'test'
     if (req.method === 'POST') {
       try {
-        const body = await req.json()
-        environment = body.environment || 'test'
+        const bodyText = await req.text()
+        if (bodyText && bodyText.trim()) {
+          const body = JSON.parse(bodyText)
+          environment = body.environment || 'test'
+        }
       } catch (e) {
-        console.log('No body or invalid JSON, using default environment:', environment)
+        console.log('No valid JSON body, using default environment:', environment)
       }
     }
     console.log('Environment requested:', environment)
 
     // Get the appropriate keys based on environment
-    let publicKey: string
-    let accessToken: string
+    let publicKey: string | undefined
+    let accessToken: string | undefined
 
     if (environment === 'production') {
-      publicKey = Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_PROD')!
-      accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')!
+      publicKey = Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_PROD')
+      accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
       console.log('Using production credentials')
     } else {
-      publicKey = Deno.env.get('MERCADO_PAGO_PUBLIC_KEY')!
-      accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')!
+      publicKey = Deno.env.get('MERCADO_PAGO_PUBLIC_KEY_TEST') || Deno.env.get('MERCADO_PAGO_PUBLIC_KEY')
+      accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')
       console.log('Using test credentials')
     }
 

@@ -35,7 +35,27 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { orderData, paymentMethod, paymentData } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { orderData, paymentMethod, paymentData } = requestBody;
+    
+    // Validação dos dados recebidos
+    if (!orderData || !paymentMethod) {
+      console.error('Missing required data:', { orderData: !!orderData, paymentMethod: !!paymentMethod });
+      return new Response(
+        JSON.stringify({ error: 'Missing required payment data' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // Gera uma chave de idempotência se não for fornecida
     const idempotencyKey = req.headers.get('x-idempotency-key') || generateIdempotencyKey(orderData.user_id, orderData);
@@ -75,7 +95,7 @@ serve(async (req) => {
     
     const accessToken = isProduction 
       ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
-      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
+      : (Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN'));
 
     console.log('Using environment:', isProduction ? 'production' : 'test');
 
@@ -140,25 +160,39 @@ serve(async (req) => {
     }
 
     // Salvar pagamento no banco
-    const { error: insertError } = await supabase
+    const paymentInsertData = {
+      user_id: orderData.user_id,
+      external_id: mpResult.id?.toString(),
+      status: mpResult.status,
+      amount: orderData.total_amount,
+      method: paymentMethod.toUpperCase(),
+      metadata: {
+        qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
+        qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
+        expiration_date: mpResult.date_of_expiration
+      }
+    };
+
+    console.log('Inserting payment data:', { 
+      user_id: paymentInsertData.user_id, 
+      external_id: paymentInsertData.external_id, 
+      status: paymentInsertData.status 
+    });
+
+    const { data: insertedPayment, error: insertError } = await supabase
       .from('payments')
-      .insert({
-        user_id: orderData.user_id,
-        external_id: mpResult.id,
-        status: mpResult.status,
-        amount: orderData.total_amount,
-        method: paymentMethod.toUpperCase(),
-        metadata: {
-          qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
-          qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
-          expiration_date: mpResult.date_of_expiration
-        }
-      });
+      .insert(paymentInsertData)
+      .select()
+      .single();
 
     if (insertError) {
       console.error('Erro ao salvar pagamento:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao salvar dados do pagamento' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     } else {
-      console.log('Payment saved to database');
+      console.log('Payment saved to database successfully');
     }
 
     // Salvar chave de idempotência
@@ -168,12 +202,14 @@ serve(async (req) => {
         .insert({
           idempotency_key: idempotencyKey,
           user_id: orderData.user_id,
-          external_id: mpResult.id,
+          external_id: mpResult.id?.toString(),
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         });
       
       if (idempotencyInsertError) {
         console.error('Erro ao salvar idempotência:', idempotencyInsertError);
+      } else {
+        console.log('Idempotency key saved successfully');
       }
     }
 
