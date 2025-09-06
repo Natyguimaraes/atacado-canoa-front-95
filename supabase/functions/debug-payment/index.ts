@@ -175,12 +175,71 @@ serve(async (req) => {
       )
     }
 
+    console.log('Payment created successfully in MP:', mpResult.id)
+
+    // Salvar pagamento no banco
+    const paymentInsertData = {
+      user_id: orderData.user_id,
+      external_id: mpResult.id?.toString(),
+      status: mpResult.status?.toUpperCase(),
+      amount: orderData.total_amount,
+      method: paymentMethod.toUpperCase(),
+      metadata: {
+        qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
+        qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
+        expiration_date: mpResult.date_of_expiration
+      }
+    };
+
+    console.log('Inserting payment into database:', { 
+      user_id: paymentInsertData.user_id, 
+      external_id: paymentInsertData.external_id, 
+      status: paymentInsertData.status 
+    });
+
+    const { data: insertedPayment, error: insertError } = await supabase
+      .from('payments')
+      .insert(paymentInsertData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Erro ao salvar pagamento:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao salvar dados do pagamento', details: insertError }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Payment saved to database successfully');
+
+    // Salvar chave de idempotência se presente
+    if (idempotencyKey) {
+      const { error: idempotencyInsertError } = await supabase
+        .from('payment_idempotency')
+        .insert({
+          idempotency_key: idempotencyKey,
+          user_id: orderData.user_id,
+          external_id: mpResult.id?.toString(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
+      
+      if (idempotencyInsertError) {
+        console.error('Erro ao salvar idempotência:', idempotencyInsertError);
+      } else {
+        console.log('Idempotency key saved successfully');
+      }
+    }
+
     return new Response(
       JSON.stringify({
-        success: true,
-        debug: 'All tests passed',
-        mp_id: mpResult.id,
-        mp_status: mpResult.status
+        id: mpResult.id,
+        status: mpResult.status,
+        metadata: {
+          qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
+          qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
+          expiration_date: mpResult.date_of_expiration
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
