@@ -121,7 +121,8 @@ serve(async (req) => {
 
     // Extrair dados do cliente e endereço IP para auditoria
     const userAgent = req.headers.get('user-agent') || 'Unknown';
-    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'Unknown';
+    const forwardedFor = req.headers.get('x-forwarded-for');
+    const clientIP = forwardedFor ? forwardedFor.split(',')[0].trim() : req.headers.get('x-real-ip') || '127.0.0.1';
     
     // Constrói os objetos 'payer' com dados validados
     const fullName = validatedOrderData.shipping_data.fullName;
