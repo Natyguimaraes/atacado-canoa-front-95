@@ -52,12 +52,9 @@ serve(async (req) => {
         user_id: orderData.user_id,
         items: orderData.items,
         total_amount: orderData.total_amount,
-        status: paymentStatus,
+        status: paymentStatus === 'APPROVED' ? 'paid' : 'pending',
         payment_method: finalPaymentMethod, // Salva o método correto
-        shipping_address: orderData.shipping_address,
-        customer_name: orderData.customer_name,
-        customer_email: orderData.customer_email,
-        customer_cpf: orderData.customer_cpf,
+        shipping_data: orderData.shipping_data || orderData.shipping_address,
       })
       .select('id')
       .single();
