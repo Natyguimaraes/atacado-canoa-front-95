@@ -55,11 +55,11 @@ serve(async (req) => {
     console.log(`Pagamento criado no MP com ID ${mpResult.id} e status ${paymentStatus}`);
     
     // Mapear método de pagamento do MP para valores aceitos no DB
-    let finalPaymentMethod = 'CREDIT_CARD'; // default
+    let finalPaymentMethod = 'CREDIT'; // default para cartão
     if (paymentMethod === 'pix') {
       finalPaymentMethod = 'PIX';
     } else if (paymentMethod === 'credit') {
-      finalPaymentMethod = 'CREDIT_CARD';
+      finalPaymentMethod = 'CREDIT';
     }
 
     console.log("Creating order...");
