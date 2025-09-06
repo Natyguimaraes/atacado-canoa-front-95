@@ -262,7 +262,7 @@ const ProductDetails = () => {
                   </div>
                 )}
                 
-                {product.colors && product.colors.length > 0 && (
+                 {product.colors && product.colors.length > 0 && (
                   <div className="space-y-3">
                     <h3 className="font-semibold text-lg">Cor:</h3>
                     <div className="flex flex-wrap gap-3">
@@ -270,11 +270,16 @@ const ProductDetails = () => {
                         <Button 
                           key={color} 
                           variant={selectedColor === color ? 'default' : 'outline'} 
-                          className="h-12 w-12 rounded-full p-0 border-2 hover-scale overflow-hidden" 
-                          style={{ backgroundColor: color.toLowerCase() }} 
+                          className={`h-12 px-6 rounded-lg transition-all hover-scale ${
+                            selectedColor === color 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-muted/50 text-foreground hover:bg-muted border-border'
+                          }`}
                           aria-label={color}
                           onClick={() => setSelectedColor(color)}
-                        />
+                        >
+                          <span className="font-medium">{color}</span>
+                        </Button>
                       ))}
                     </div>
                   </div>
