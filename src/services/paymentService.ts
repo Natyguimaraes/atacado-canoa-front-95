@@ -48,8 +48,8 @@ export const processPayment = async (
   // Gerar chave de idempotência
   const idempotencyKey = generateIdempotencyKey(orderData.user_id, orderData);
 
-  // Usar função principal corrigida
-  const { data, error } = await supabase.functions.invoke('process-payment', {
+  // Usar função de debug temporariamente para ver logs detalhados
+  const { data, error } = await supabase.functions.invoke('debug-payment', {
     body: {
       orderData,
       paymentMethod,
