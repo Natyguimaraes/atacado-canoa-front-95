@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
+import { AccessibilityProvider } from "@/components/AccessibilityProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
 import DevTools from '@/components/DevTools';
 import { envManager } from '@/lib/environment';
@@ -22,7 +24,6 @@ import Configuracoes from "./pages/Configuracoes";
 import Pedidos from "./pages/Pedidos";
 import StatusPagamento from "./pages/StatusPagamento";
 import NotFound from "./pages/NotFound";
-// NOVO: Importar a página de gráficos
 import Graficos from "./pages/Admin/Graficos";
 
 const queryClient = new QueryClient({
@@ -35,38 +36,43 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <CartProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ScrollToTop />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/cadastro" element={<Cadastro />} />
-              <Route path="/produtos" element={<Produtos />} />
-              <Route path="/produto/:id" element={<ProductDetails />} />
-              <Route path="/carrinho" element={<Carrinho />} />
-              <Route path="/admin/dashboard" element={<Dashboard />} />
-              <Route path="/admin/cadastro-produto" element={<CadastroProduto />} />
-              <Route path="/admin/estoque" element={<EstoqueManagement />} />
-              {/* NOVO: Rota para a página de gráficos */}
-              <Route path="/admin/graficos" element={<Graficos />} />
-              <Route path="/pagamento" element={<Pagamento />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
-              <Route path="/pedidos" element={<Pedidos />} />
-              <Route path="/status-pagamento/:id" element={<StatusPagamento />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <DevTools />
-          </BrowserRouter>
-        </TooltipProvider>
-      </CartProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <CartProvider>
+          <AccessibilityProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <ScrollToTop />
+                <main id="main-content" tabIndex={-1} className="focus:outline-none">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/cadastro" element={<Cadastro />} />
+                    <Route path="/produtos" element={<Produtos />} />
+                    <Route path="/produto/:id" element={<ProductDetails />} />
+                    <Route path="/carrinho" element={<Carrinho />} />
+                    <Route path="/admin/dashboard" element={<Dashboard />} />
+                    <Route path="/admin/cadastro-produto" element={<CadastroProduto />} />
+                    <Route path="/admin/estoque" element={<EstoqueManagement />} />
+                    <Route path="/admin/graficos" element={<Graficos />} />
+                    <Route path="/pagamento" element={<Pagamento />} />
+                    <Route path="/configuracoes" element={<Configuracoes />} />
+                    <Route path="/pedidos" element={<Pedidos />} />
+                    <Route path="/status-pagamento/:id" element={<StatusPagamento />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
+                <DevTools />
+              </BrowserRouter>
+            </TooltipProvider>
+          </AccessibilityProvider>
+        </CartProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

@@ -167,7 +167,69 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "liga" 1, "calt" 1;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus styles for accessibility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  /* Skip to content link for screen readers */
+  .skip-link {
+    @apply absolute -top-40 left-6 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-md transition-all duration-300;
+    @apply focus:top-6;
+  }
+}
+
+@layer components {
+  /* Button enhancements */
+  .btn-gradient {
+    @apply bg-gradient-primary text-white border-0 hover:opacity-90 transition-opacity;
+  }
+
+  .btn-glass {
+    @apply glass text-white hover:bg-white/20 transition-all duration-300;
+  }
+
+  /* Card enhancements */
+  .card-elegant {
+    @apply bg-gradient-card border-0 shadow-lg hover:shadow-xl transition-all duration-300;
+  }
+
+  .card-glass {
+    @apply glass shadow-lg hover:shadow-xl hover:bg-white/15 transition-all duration-300;
+  }
+
+  /* Loading states */
+  .loading-shimmer {
+    @apply animate-shimmer shimmer;
+  }
+
+  /* Text utilities */
+  .text-gradient {
+    @apply bg-gradient-primary bg-clip-text text-transparent;
+  }
+
+  /* Interactive elements */
+  .interactive {
+    @apply transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+
+  /* Grid layouts */
+  .grid-responsive {
+    @apply grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  /* Accessibility helpers */
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+    clip: rect(0, 0, 0, 0);
   }
 }
 
@@ -185,4 +247,20 @@
 
 .mp-form-control select {
   @apply w-full border-0 bg-transparent p-0 outline-none;
+}
+
+/* Melhorias de performance e acessibilidade */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card-glass, .glass {
+    @apply bg-background border-2 border-foreground;
+  }
 }

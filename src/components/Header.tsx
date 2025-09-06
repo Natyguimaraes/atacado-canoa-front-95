@@ -1,210 +1,310 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  navigationMenuTriggerStyle,
-} from '@/components/ui/navigation-menu';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Search,
-  ShoppingCart,
-  Menu,
-  User,
-  Package,
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from './ui/sheet';
+import { 
+  ShoppingCart, 
+  User, 
+  LogOut, 
+  Menu, 
+  Search, 
   Heart,
   Settings,
-  LogOut,
-  LayoutDashboard,
+  Package
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext';
-import logo from '@/assets/logo.png';
+import { cn } from '@/lib/utils';
+import ImageWithFallback from './ImageWithFallback';
+import AnimatedContainer from './AnimatedContainer';
+import logoImg from '@/assets/logo.jpg';
 
 const Header = () => {
-  const { user, profile, isAdmin, signOut } = useAuth();
-  const { itemCount } = useCart();
+  const { user, logout, isAdmin } = useAuth();
+  const { cart } = useCart();
   const navigate = useNavigate();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
-  };
+  const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
 
-  const navLinks = [
-    { href: '/', label: 'Home' },
-    { href: '/produtos', label: 'Produtos' },
-    { href: '/sobre', label: 'Sobre Nós' },
-    { href: '/contato', label: 'Contato' },
+  // Navegação principal
+  const mainNavItems = [
+    { href: '/', label: 'Home', icon: null },
+    { href: '/produtos', label: 'Produtos', icon: null },
   ];
 
-  const getInitials = (name: string) => {
-    const names = name.split(' ');
-    if (names.length > 1) {
-      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+  // Navegação do usuário
+  const userNavItems = user ? [
+    { href: '/pedidos', label: 'Meus Pedidos', icon: Package },
+    { href: '/configuracoes', label: 'Configurações', icon: Settings },
+    ...(isAdmin ? [{ href: '/admin/dashboard', label: 'Painel Admin', icon: Settings }] : []),
+  ] : [];
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/produtos?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
     }
-    return name.substring(0, 2).toUpperCase();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="Atacado Canoa" className="h-8 w-auto" />
-          <span className="font-bold text-lg hidden sm:inline-block">
-            Atacado Canoa
-          </span>
-        </Link>
+    <AnimatedContainer animation="fade-in" className="sticky top-0 z-50">
+      <header className="bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            
+            {/* Logo */}
+            <Link 
+              to="/" 
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity focus-ring rounded-md"
+              aria-label="Atacado Canoa - Página inicial"
+            >
+              <ImageWithFallback
+                src={logoImg}
+                alt="Logo Atacado Canoa"
+                className="h-10 w-10 rounded-full"
+                aspectRatio="1:1"
+              />
+              <span className="hidden sm:block font-display font-bold text-xl text-gradient">
+                Atacado Canoa
+              </span>
+            </Link>
 
-        {/* Desktop Navigation */}
-        <NavigationMenu className="hidden lg:flex">
-          <NavigationMenuList>
-            {navLinks.map((link) => (
-              <NavigationMenuItem key={link.href}>
-                <Link to={link.href}>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                    {link.label}
-                  </NavigationMenuLink>
+            {/* Navegação Desktop */}
+            <nav className="hidden md:flex items-center gap-6" aria-label="Navegação principal">
+              {mainNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="text-foreground hover:text-primary transition-colors story-link font-medium"
+                >
+                  {item.label}
                 </Link>
-              </NavigationMenuItem>
-            ))}
-          </NavigationMenuList>
-        </NavigationMenu>
+              ))}
+            </nav>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 md:gap-4">
-          <Button variant="ghost" size="icon">
-            <Search className="h-5 w-5" />
-          </Button>
-          <Link to="/carrinho" className="relative">
-            <Button variant="ghost" size="icon">
-              <ShoppingCart className="h-5 w-5" />
-              {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                  {itemCount}
-                </span>
-              )}
-            </Button>
-          </Link>
+            {/* Barra de Pesquisa */}
+            <div className="hidden lg:flex max-w-sm w-full">
+              <form onSubmit={handleSearch} className="relative w-full">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="search"
+                  placeholder="Buscar produtos..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-full text-sm focus-ring transition-all hover:bg-muted/70"
+                  aria-label="Buscar produtos"
+                />
+              </form>
+            </div>
 
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || user.email} />
-                    <AvatarFallback>
-                      {getInitials(profile?.full_name || user.email || 'U')}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {isAdmin && (
-                   <DropdownMenuItem asChild>
-                    <Link to="/admin/dashboard" className="flex items-center">
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      <span>Painel Admin</span>
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem asChild>
-                  <Link to="/perfil" className="flex items-center">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Meu Perfil</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/pedidos" className="flex items-center">
-                    <Package className="mr-2 h-4 w-4" />
-                    <span>Meus Pedidos</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/favoritos" className="flex items-center">
-                     <Heart className="mr-2 h-4 w-4" />
-                    <span>Favoritos</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                   <Link to="/configuracoes" className="flex items-center">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Configurações</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sair</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button asChild>
-              <Link to="/login">Entrar</Link>
-            </Button>
-          )}
-
-          {/* Mobile Menu Trigger */}
-          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger asChild className="lg:hidden">
-              <Button variant="outline" size="icon">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-              <SheetHeader>
-                <SheetTitle>
-                   <Link to="/" className="flex items-center gap-2" onClick={() => setIsSheetOpen(false)}>
-                    <img src={logo} alt="Atacado Canoa" className="h-8 w-auto" />
-                    <span className="font-bold text-lg">Atacado Canoa</span>
-                  </Link>
-                </SheetTitle>
-              </SheetHeader>
-              <div className="mt-8 flex flex-col gap-4">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    to={link.href}
-                    className="text-lg font-medium text-foreground hover:text-primary"
-                    onClick={() => setIsSheetOpen(false)}
+            {/* Ações do usuário */}
+            <div className="flex items-center gap-2">
+              
+              {/* Carrinho */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative hover-scale focus-ring"
+                onClick={() => navigate('/carrinho')}
+                aria-label={`Carrinho de compras - ${totalItems} ${totalItems === 1 ? 'item' : 'itens'}`}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {totalItems > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs animate-bounce-subtle"
                   >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            </SheetContent>
-          </Sheet>
+                    {totalItems}
+                  </Badge>
+                )}
+              </Button>
+
+              {/* Wishlist (futura funcionalidade) */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden sm:flex hover-scale focus-ring"
+                aria-label="Lista de desejos"
+                disabled
+              >
+                <Heart className="h-5 w-5" />
+              </Button>
+
+              {/* Usuário */}
+              {user ? (
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hover-scale focus-ring"
+                      aria-label="Menu do usuário"
+                    >
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-80">
+                    <SheetHeader className="text-left">
+                      <SheetTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        Minha Conta
+                      </SheetTitle>
+                    </SheetHeader>
+                    
+                    <div className="mt-6 space-y-1">
+                      <div className="px-3 py-2 rounded-md bg-muted/50">
+                        <p className="font-medium text-sm">{user.email}</p>
+                        {isAdmin && (
+                          <Badge variant="secondary" className="mt-1">
+                            Administrador
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <nav className="space-y-1" aria-label="Menu do usuário">
+                        {userNavItems.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <Link
+                              key={item.href}
+                              to={item.href}
+                              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted/50 transition-colors text-sm"
+                            >
+                              <Icon className="h-4 w-4" />
+                              {item.label}
+                            </Link>
+                          );
+                        })}
+                        
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors text-sm w-full text-left"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Sair
+                        </button>
+                      </nav>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              ) : (
+                <div className="hidden sm:flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/login')}
+                    className="focus-ring"
+                  >
+                    Entrar
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => navigate('/cadastro')}
+                    className="btn-gradient focus-ring"
+                  >
+                    Cadastrar
+                  </Button>
+                </div>
+              )}
+
+              {/* Menu Mobile */}
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="md:hidden hover-scale focus-ring"
+                    aria-label="Abrir menu de navegação"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-80">
+                  <SheetHeader className="text-left">
+                    <SheetTitle className="flex items-center gap-2">
+                      <ImageWithFallback
+                        src={logoImg}
+                        alt=""
+                        className="h-6 w-6 rounded-full"
+                        aspectRatio="1:1"
+                      />
+                      Atacado Canoa
+                    </SheetTitle>
+                  </SheetHeader>
+                  
+                  {/* Pesquisa Mobile */}
+                  <div className="mt-6 lg:hidden">
+                    <form onSubmit={handleSearch} className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="search"
+                        placeholder="Buscar produtos..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-md text-sm focus-ring"
+                        aria-label="Buscar produtos"
+                      />
+                    </form>
+                  </div>
+
+                  {/* Navegação Mobile */}
+                  <nav className="mt-6 space-y-1" aria-label="Navegação principal">
+                    {mainNavItems.map((item) => (
+                      <Link
+                        key={item.href}
+                        to={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 rounded-md hover:bg-muted/50 transition-colors"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </nav>
+
+                  {/* Ações Mobile para usuários não logados */}
+                  {!user && (
+                    <div className="mt-6 space-y-2 sm:hidden">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          navigate('/login');
+                          setIsMobileMenuOpen(false);
+                        }}
+                      >
+                        Entrar
+                      </Button>
+                      <Button
+                        className="w-full btn-gradient"
+                        onClick={() => {
+                          navigate('/cadastro');
+                          setIsMobileMenuOpen(false);
+                        }}
+                      >
+                        Cadastrar
+                      </Button>
+                    </div>
+                  )}
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </AnimatedContainer>
   );
 };
 
