@@ -130,12 +130,21 @@ serve(async (req) => {
       email: paymentPayload.payer.email
     });
 
+    // Prepare headers for Mercado Pago
+    const mpHeaders = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    }
+
+    // Add idempotency key if present
+    if (idempotencyKey) {
+      mpHeaders['X-Idempotency-Key'] = idempotencyKey
+      console.log('Adding X-Idempotency-Key to MP request:', idempotencyKey)
+    }
+
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: mpHeaders,
       body: JSON.stringify(paymentPayload),
     });
 

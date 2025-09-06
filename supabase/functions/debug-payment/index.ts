@@ -122,26 +122,41 @@ serve(async (req) => {
       )
     }
 
+    // Get idempotency key from headers
+    const idempotencyKey = req.headers.get('x-idempotency-key')
+    console.log('Idempotency key:', idempotencyKey)
+
     // Create minimal test payment
     const testPayload = {
       transaction_amount: parseFloat(orderData.total_amount.toString()),
       description: `Test payment - ${orderData.order_id || 'no-order-id'}`,
       payment_method_id: 'pix',
       payer: {
-        email: orderData.customer_email || 'test@test.com',
-        first_name: 'Test',
-        last_name: 'User'
+        email: orderData.customer_email || orderData.shipping_data?.email || 'test@test.com',
+        first_name: orderData.customer_name?.split(' ')[0] || orderData.shipping_data?.fullName?.split(' ')[0] || 'Test',
+        last_name: orderData.customer_name?.split(' ').slice(1).join(' ') || orderData.shipping_data?.fullName?.split(' ').slice(1).join(' ') || 'User'
       }
     }
 
     console.log('Test payment payload:', testPayload)
 
+    // Prepare headers for Mercado Pago
+    const mpHeaders = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    }
+
+    // Add idempotency key if present
+    if (idempotencyKey) {
+      mpHeaders['X-Idempotency-Key'] = idempotencyKey
+      console.log('Adding X-Idempotency-Key to MP request:', idempotencyKey)
+    }
+
+    console.log('MP Headers:', mpHeaders)
+
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: mpHeaders,
       body: JSON.stringify(testPayload),
     })
 
