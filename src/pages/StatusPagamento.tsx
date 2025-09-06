@@ -46,13 +46,27 @@ export default function StatusPagamento() {
         console.warn('Erro ao verificar status:', checkError);
       }
       
-      const { data, error } = await supabase
+      // Buscar por external_id ou id
+      let { data, error } = await supabase
         .from('payments')
         .select('*')
         .eq('external_id', paymentId)
         .maybeSingle();
 
       if (error) throw error;
+      
+      // Se não encontrou por external_id, tentar por id
+      if (!data) {
+        const { data: dataById, error: errorById } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('id', paymentId)
+          .maybeSingle();
+          
+        if (errorById) throw errorById;
+        data = dataById;
+      }
+      
       if (!data) throw new Error("Pagamento não encontrado");
       
       return { status: "success", data };

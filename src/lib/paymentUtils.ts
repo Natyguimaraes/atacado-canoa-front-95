@@ -80,5 +80,8 @@ export const processPaymentResponse = async (
     paymentResponse.status === 'approved' ? 'paid' : 'pending'
   );
 
-  return paymentRecord;
+  return {
+    ...paymentRecord,
+    external_id: paymentResponse.id.toString()
+  };
 };

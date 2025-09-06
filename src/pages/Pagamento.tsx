@@ -217,13 +217,13 @@ const Pagamento = () => {
               description: "Este pagamento já foi processado anteriormente.",
               variant: "default"
             });
-            navigate(`/status-pagamento/${paymentResult.id}`);
+            navigate(`/status-pagamento/${paymentResult.external_id || paymentResult.id}`);
             return;
           }
           
           await clearCart();
           toast({ title: "Pedido realizado com sucesso!", description: "A redirecionar..." });
-          navigate(`/status-pagamento/${paymentResult.id}`);
+          navigate(`/status-pagamento/${paymentResult.external_id || paymentResult.id}`);
       } else {
           throw new Error("A resposta do servidor de pagamento foi inválida.");
       }
