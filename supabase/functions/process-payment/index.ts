@@ -89,18 +89,13 @@ serve(async (req) => {
       }
     }
 
-    // Determinar token do Mercado Pago baseado no ambiente
-    const hostname = req.headers.get('origin') || '';
-    const isProduction = hostname.includes('atacado-canoa-front-95.vercel.app');
-    
-    const accessToken = isProduction 
-      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
-      : (Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN'));
+    // Usar apenas credenciais de teste por enquanto para debug
+    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
 
-    console.log('Using environment:', isProduction ? 'production' : 'test');
+    console.log('Using test environment for all requests');
 
     if (!accessToken) {
-      console.error('Missing Mercado Pago token for environment:', isProduction ? 'production' : 'test');
+      console.error('Missing Mercado Pago token');
       return new Response(
         JSON.stringify({ error: 'Token do Mercado Pago não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
