@@ -1,8 +1,10 @@
 // src/components/CardPaymentForm.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import { CardPayment } from '@mercadopago/sdk-react';
 import { Label } from './ui/label';
+import InstallmentSelector from './InstallmentSelector';
+import SecurityWarnings from './SecurityWarnings';
 
 interface CardPaymentData {
   token: string;
@@ -21,12 +23,24 @@ interface CardPaymentData {
 
 interface CardPaymentFormProps {
   amount: number;
-  payerEmail: string; // <-- NOVO: Propriedade para receber o e-mail
+  payerEmail: string;
   onPaymentReady: (data: CardPaymentData) => void;
   onFormError: (error: any) => void;
+  onInstallmentsReady?: (hasInstallments: boolean) => void;
 }
 
-const CardPaymentForm: React.FC<CardPaymentFormProps> = ({ amount, payerEmail, onPaymentReady, onFormError }) => {
+const CardPaymentForm: React.FC<CardPaymentFormProps> = ({ 
+  amount, 
+  payerEmail, 
+  onPaymentReady, 
+  onFormError, 
+  onInstallmentsReady 
+}) => {
+  const [selectedInstallments, setSelectedInstallments] = useState(1);
+  const [paymentMethodInfo, setPaymentMethodInfo] = useState<{
+    paymentMethodId: string;
+    issuerId: string;
+  } | null>(null);
   const initialization = {
     amount: amount,
     // --- INÍCIO DA CORREÇÃO ---
@@ -41,13 +55,18 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({ amount, payerEmail, o
   const customization = {
     visual: {
       style: {
-        theme: 'flat', 
+        theme: 'flat',
       }
     }
   };
   
   const onSubmit = async (cardPaymentData: CardPaymentData) => {
-    onPaymentReady(cardPaymentData);
+    // Adicionar número de parcelas selecionado
+    const enhancedData = {
+      ...cardPaymentData,
+      installments: selectedInstallments
+    };
+    onPaymentReady(enhancedData);
   };
   
   const onError = async (error: any) => {
@@ -55,17 +74,38 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({ amount, payerEmail, o
     onFormError(error);
   };
 
+  const onReady = () => {
+    // Quando o formulário estiver pronto, indicar que as parcelas podem ser carregadas
+    onInstallmentsReady?.(true);
+  };
+
   return (
-    <div className="space-y-4">
-      <Label>Dados do Cartão de Crédito</Label>
+    <div className="space-y-6">
+      <div>
+        <Label className="text-base font-semibold">Dados do Cartão de Crédito</Label>
+        <p className="text-sm text-muted-foreground mt-1">
+          Preencha os dados do seu cartão para continuar
+        </p>
+      </div>
+      
       <div id="card-payment-brick-container">
         <CardPayment
           initialization={initialization}
           customization={customization}
           onSubmit={onSubmit}
           onError={onError}
+          onReady={onReady}
         />
       </div>
+
+      <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+        <Label className="text-sm font-medium">Parcelas</Label>
+        <p className="text-sm text-muted-foreground mt-1">
+          As opções de parcelamento serão exibidas após validar o cartão
+        </p>
+      </div>
+
+      <SecurityWarnings />
     </div>
   );
 };

@@ -1,14 +1,8 @@
 // src/services/paymentService.ts
 
 import { supabase } from '@/integrations/supabase/client';
-
-// Tipagem para os dados do pedido, para garantir consistência
-interface OrderData {
-  user_id: string | undefined;
-  items: any[]; // Idealmente, crie uma interface para os itens do carrinho também
-  total_amount: number;
-  shipping_data: any; // Idealmente, use a interface ShippingData que você já tem
-}
+import { OrderData, orderDataSchema } from '@/lib/schemas';
+import { generateIdempotencyKey, checkIdempotency } from '@/lib/idempotency';
 
 type PaymentMethod = 'pix' | 'credit';
 
@@ -25,12 +19,35 @@ export const processPayment = async (
   paymentMethod: PaymentMethod,
   paymentData?: any // Parâmetro opcional para os dados do cartão
 ) => {
+  // Validar dados do pedido antes de enviar
+  try {
+    orderDataSchema.parse(orderData);
+  } catch (validationError: any) {
+    throw new Error(`Dados do pedido inválidos: ${validationError.message}`);
+  }
+
+  // Gerar chave de idempotência
+  const idempotencyKey = generateIdempotencyKey(orderData.user_id, orderData);
+  
+  // Verificar se já existe um pagamento com esta chave
+  const existingPayment = await checkIdempotency(idempotencyKey);
+  if (existingPayment) {
+    return {
+      id: existingPayment.external_id,
+      status: 'duplicate',
+      message: 'Pagamento já processado'
+    };
+  }
+
   const { data, error } = await supabase.functions.invoke('process-payment', {
     body: {
       orderData,
       paymentMethod,
-      paymentData, // Enviamos os dados do cartão aqui
+      paymentData,
     },
+    headers: {
+      'x-idempotency-key': idempotencyKey
+    }
   });
 
   if (error) {

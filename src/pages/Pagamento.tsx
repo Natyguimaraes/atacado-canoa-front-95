@@ -19,21 +19,9 @@ import { initMercadoPago } from '@mercadopago/sdk-react';
 import { getEnvironmentConfig } from '@/lib/mercadoPago';
 import { validateCpf, unformatCpf } from '@/utils/cpfUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { shippingDataSchema, type ShippingData } from '@/lib/schemas';
 
-// Interfaces
-interface ShippingData {
-  fullName: string;
-  email: string;
-  phone: string;
-  cpf: string;
-  zipCode: string;
-  address: string;
-  number: string;
-  complement: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-}
+// As interfaces agora vêm de schemas.ts
 
 const Pagamento = () => {
   const { user } = useAuth();
@@ -162,17 +150,25 @@ const Pagamento = () => {
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar CPF antes de prosseguir
-    if (!validateCpf(shippingData.cpf)) {
+    try {
+      // Validar dados de entrega usando schema
+      const validatedData = shippingDataSchema.parse({
+        ...shippingData,
+        cpf: unformatCpf(shippingData.cpf),
+        zipCode: shippingData.zipCode.replace(/\D/g, ''),
+        state: shippingData.state.toUpperCase()
+      });
+      
+      // Atualizar estado com dados validados
+      setShippingData(prev => ({ ...prev, ...validatedData }));
+      setStep('payment');
+    } catch (error: any) {
       toast({
-        title: "Erro",
-        description: "Por favor, informe um CPF válido.",
+        title: "Dados inválidos",
+        description: error.message || "Verifique os dados informados.",
         variant: "destructive"
       });
-      return;
     }
-    
-    setStep('payment');
   };
 
   const handlePayment = async () => {
@@ -189,10 +185,22 @@ const Pagamento = () => {
     setIsProcessing(true);
     try {
       const orderData = {
-        user_id: user?.id,
-        items: items,
+        user_id: user?.id || '',
+        items: items.map(item => ({
+          product_id: item.product_id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          size: item.size,
+          image: item.image
+        })),
         total_amount: orderTotal,
-        shipping_data: shippingData,
+        shipping_data: {
+          ...shippingData,
+          cpf: unformatCpf(shippingData.cpf),
+          zipCode: shippingData.zipCode.replace(/\D/g, ''),
+          state: shippingData.state.toUpperCase()
+        },
       };
       
       const paymentResult = await processPayment(
@@ -202,6 +210,17 @@ const Pagamento = () => {
       );
       
       if (paymentResult && paymentResult.id) {
+          // Verificar se é um pagamento duplicado
+          if (paymentResult.status === 'duplicate') {
+            toast({ 
+              title: "Pagamento já processado", 
+              description: "Este pagamento já foi processado anteriormente.",
+              variant: "default"
+            });
+            navigate(`/status-pagamento/${paymentResult.id}`);
+            return;
+          }
+          
           await clearCart();
           toast({ title: "Pedido realizado com sucesso!", description: "A redirecionar..." });
           navigate(`/status-pagamento/${paymentResult.id}`);

@@ -2,10 +2,45 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { createHmac } from "https://deno.land/std@0.190.0/crypto/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-signature',
+};
+
+// Schema para validação do webhook
+const webhookSchema = z.object({
+  type: z.string(),
+  data: z.object({
+    id: z.string()
+  })
+});
+
+// Função para validar assinatura do webhook
+const validateWebhookSignature = (
+  body: string,
+  signature: string | null,
+  secret: string
+): boolean => {
+  if (!signature || !secret) {
+    console.log('Assinatura ou segredo não fornecidos');
+    return false;
+  }
+
+  try {
+    const expectedSignature = createHmac("sha256", secret)
+      .update(body)
+      .digest("hex");
+    
+    const providedSignature = signature.replace('sha256=', '');
+    
+    return expectedSignature === providedSignature;
+  } catch (error) {
+    console.error('Erro ao validar assinatura:', error);
+    return false;
+  }
 };
 
 // Crie o cliente Supabase fora do handler para reutilização
@@ -20,15 +55,38 @@ serve(async (req) => {
   }
 
   try {
-    const notification = await req.json();
-    console.log("--> Webhook do Mercado Pago recebido:", JSON.stringify(notification, null, 2));
+    // Obter o corpo da requisição como texto para validar a assinatura
+    const requestBody = await req.text();
+    const signature = req.headers.get('x-signature');
+    const webhookSecret = Deno.env.get('MERCADO_PAGO_WEBHOOK_SECRET');
+    
+    // Validar assinatura do webhook (opcional, mas recomendado)
+    if (webhookSecret && !validateWebhookSignature(requestBody, signature, webhookSecret)) {
+      console.warn('Assinatura do webhook inválida');
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), { 
+        status: 401,
+        headers: corsHeaders 
+      });
+    }
+    
+    // Parse do JSON após validação
+    const notification = JSON.parse(requestBody);
+    
+    // Validar estrutura do webhook
+    const validatedNotification = webhookSchema.parse(notification);
+    
+    console.log("--> Webhook do Mercado Pago recebido:", JSON.stringify(validatedNotification, null, 2));
 
     // A notificação do Mercado Pago só nos diz o ID do pagamento que mudou.
-    if (notification.type === 'payment' && notification.data && notification.data.id) {
-      const paymentId = notification.data.id;
+    if (validatedNotification.type === 'payment' && validatedNotification.data?.id) {
+      const paymentId = validatedNotification.data.id;
 
       // Com o ID, nós buscamos os detalhes completos do pagamento na API do Mercado Pago.
-      const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+      const isProduction = Deno.env.get('SUPABASE_URL')?.includes('supabase.co');
+      const accessToken = isProduction
+        ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
+        : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
+        
       if (!accessToken) throw new Error("MERCADO_PAGO_ACCESS_TOKEN não configurado.");
 
       const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
@@ -49,7 +107,10 @@ serve(async (req) => {
         // Atualizamos o status na nossa tabela 'orders'
         const { error: orderUpdateError } = await supabaseAdmin
           .from('orders')
-          .update({ status: newStatus })
+          .update({ 
+            status: newStatus === 'APPROVED' ? 'PAID' : newStatus.toLowerCase(),
+            updated_at: new Date().toISOString()
+          })
           .eq('id', orderId);
 
         if (orderUpdateError) {
@@ -58,10 +119,36 @@ serve(async (req) => {
         console.log(`Pedido ${orderId} atualizado para o status ${newStatus}.`);
 
         // Também atualizamos o status na nossa tabela 'payments'
-        await supabaseAdmin
+        const { error: paymentUpdateError } = await supabaseAdmin
           .from('payments')
-          .update({ status: newStatus })
+          .update({ 
+            status: newStatus,
+            paid_at: newStatus === 'APPROVED' ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString()
+          })
           .eq('external_id', paymentId.toString());
+
+        if (paymentUpdateError) {
+          console.error(`Erro ao atualizar pagamento: ${paymentUpdateError.message}`);
+        }
+        
+        // Se o pagamento foi aprovado, reduzir estoque
+        if (newStatus === 'APPROVED') {
+          const { data: order } = await supabaseAdmin
+            .from('orders')
+            .select('items')
+            .eq('id', orderId)
+            .single();
+
+          if (order?.items) {
+            for (const item of order.items) {
+              await supabaseAdmin.rpc('decrease_stock', {
+                product_id_to_update: item.product_id,
+                quantity_to_decrease: item.quantity
+              });
+            }
+          }
+        }
       }
     }
 

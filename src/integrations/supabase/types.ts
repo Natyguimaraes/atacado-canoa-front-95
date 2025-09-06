@@ -80,6 +80,41 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_idempotency: {
+        Row: {
+          created_at: string
+          expires_at: string
+          external_id: string | null
+          id: string
+          idempotency_key: string
+          payment_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          external_id?: string | null
+          id?: string
+          idempotency_key: string
+          payment_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          external_id?: string | null
+          id?: string
+          idempotency_key?: string
+          payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_idempotency_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_profiles: {
         Row: {
           created_at: string
@@ -117,14 +152,17 @@ export type Database = {
           deleted_at: string | null
           external_id: string
           id: string
+          idempotency_key: string | null
           is_active: boolean
           metadata: Json | null
           method: string
           order_id: string | null
           paid_at: string | null
           provider: string
+          request_ip: unknown | null
           status: string
           updated_at: string
+          user_agent: string | null
           user_id: string
         }
         Insert: {
@@ -133,14 +171,17 @@ export type Database = {
           deleted_at?: string | null
           external_id: string
           id?: string
+          idempotency_key?: string | null
           is_active?: boolean
           metadata?: Json | null
           method: string
           order_id?: string | null
           paid_at?: string | null
           provider?: string
+          request_ip?: unknown | null
           status?: string
           updated_at?: string
+          user_agent?: string | null
           user_id: string
         }
         Update: {
@@ -149,14 +190,17 @@ export type Database = {
           deleted_at?: string | null
           external_id?: string
           id?: string
+          idempotency_key?: string | null
           is_active?: boolean
           metadata?: Json | null
           method?: string
           order_id?: string | null
           paid_at?: string | null
           provider?: string
+          request_ip?: unknown | null
           status?: string
           updated_at?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: [
