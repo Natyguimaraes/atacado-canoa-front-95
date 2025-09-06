@@ -55,16 +55,20 @@ export default function StatusPagamento() {
 
       if (error) throw error;
       
-      // Se não encontrou por external_id, tentar por id
+      // Se não encontrou por external_id, tentar por id (apenas se for UUID válido)
       if (!data) {
-        const { data: dataById, error: errorById } = await supabase
-          .from('payments')
-          .select('*')
-          .eq('id', paymentId)
-          .maybeSingle();
-          
-        if (errorById) throw errorById;
-        data = dataById;
+        // Verificar se paymentId é um UUID válido antes de tentar buscar por id
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentId);
+        if (isUUID) {
+          const { data: dataById, error: errorById } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('id', paymentId)
+            .maybeSingle();
+            
+          if (errorById) throw errorById;
+          data = dataById;
+        }
       }
       
       if (!data) throw new Error("Pagamento não encontrado");
