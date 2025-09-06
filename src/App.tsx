@@ -46,6 +46,14 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <ScrollToTop />
+                {/* Skip to content link for accessibility */}
+                <a 
+                  href="#main-content" 
+                  className="skip-link"
+                  aria-label="Pular para o conteúdo principal"
+                >
+                  Pular para o conteúdo
+                </a>
                 <main id="main-content" tabIndex={-1} className="focus:outline-none">
                   <Routes>
                     <Route path="/" element={<Home />} />
@@ -65,7 +73,7 @@ const App = () => (
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>
-                <DevTools />
+                {envManager.isDevelopment && <DevTools />}
               </BrowserRouter>
             </TooltipProvider>
           </AccessibilityProvider>
