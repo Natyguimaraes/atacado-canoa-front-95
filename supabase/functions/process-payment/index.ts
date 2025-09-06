@@ -54,8 +54,13 @@ serve(async (req) => {
     const paymentStatus = mpResult.status?.toUpperCase() || 'PENDING';
     console.log(`Pagamento criado no MP com ID ${mpResult.id} e status ${paymentStatus}`);
     
-    // Determinar método de pagamento correto
-    const finalPaymentMethod = mpResult.payment_method_id?.toUpperCase() || paymentMethod.toUpperCase();
+    // Mapear método de pagamento do MP para valores aceitos no DB
+    let finalPaymentMethod = 'CREDIT_CARD'; // default
+    if (paymentMethod === 'pix') {
+      finalPaymentMethod = 'PIX';
+    } else if (paymentMethod === 'credit') {
+      finalPaymentMethod = 'CREDIT_CARD';
+    }
 
     console.log("Creating order...");
     const { data: newOrder, error: orderError } = await supabase
