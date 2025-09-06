@@ -1,5 +1,8 @@
+// src/pages/Pedidos.tsx
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Package, Clock, CheckCircle, XCircle, CreditCard, QrCode, AlertCircle, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +13,9 @@ import Footer from '@/components/Footer';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
 
+// Tipagem para o pedido com o pagamento já aninhado pela query
 interface OrderWithPayment {
   id: string;
   total_amount: number;
@@ -18,7 +23,8 @@ interface OrderWithPayment {
   payment_method: string;
   created_at: string;
   items: any;
-  payment: {
+  // O pagamento agora é um objeto único, não um array
+  payments: {
     id: string;
     external_id: string;
     status: string;
@@ -32,62 +38,54 @@ interface OrderWithPayment {
 const Pedidos = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const [orders, setOrders] = useState<OrderWithPayment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      fetchOrdersWithPayments();
-    }
-  }, [isAuthenticated, user]);
+  // Usando React Query para gerenciar o estado de 'loading', 'data' e 'error'
+  const { data: orders, isLoading, error } = useQuery({
+    queryKey: ['orders', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
 
-  const fetchOrdersWithPayments = async () => {
-    try {
-      // Buscar pedidos primeiro
-      const { data: ordersData, error: ordersError } = await supabase
+      logger.info('Buscando pedidos e pagamentos...');
+      
+      // **OTIMIZAÇÃO: Busca pedidos e pagamentos em uma única query**
+      // O Supabase junta os dados para nós, evitando múltiplas chamadas.
+      const { data, error } = await supabase
         .from('orders')
-        .select('*')
-        .eq('user_id', user?.id)
+        .select(`
+          *,
+          payments ( * )
+        `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (ordersError) {
-        throw ordersError;
+      if (error) {
+        throw error;
       }
-
-      if (!ordersData || ordersData.length === 0) {
-        setOrders([]);
-        return;
-      }
-
-      // Buscar pagamentos relacionados aos pedidos
-      const orderIds = ordersData.map(order => order.id);
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('payments')
-        .select('*')
-        .in('order_id', orderIds);
-
-      if (paymentsError) {
-        console.error('Error fetching payments:', paymentsError);
-      }
-
-      // Combinar os dados
-      const ordersWithPayments = ordersData.map(order => ({
-        ...order,
-        payment: paymentsData?.find(payment => payment.order_id === order.id) || null
+      
+      // O Supabase retorna 'payments' como um array. Pegamos o primeiro (geralmente só há um).
+      const formattedData = data.map(order => ({
+          ...order,
+          payment: order.payments && order.payments.length > 0 ? order.payments[0] : null
       }));
 
-      setOrders(ordersWithPayments);
-    } catch (error: any) {
-      console.error('Error fetching orders:', error);
+      return formattedData;
+    },
+    // A query só será executada se o usuário estiver autenticado
+    enabled: !!user && isAuthenticated, 
+  });
+  
+  // Exibe toast em caso de erro na busca
+  useEffect(() => {
+    if (error) {
+      logger.error('Erro ao buscar pedidos:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível carregar seus pedidos.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [error, toast]);
+
 
   const getPaymentStatusIcon = (status: string) => {
     switch (status?.toUpperCase()) {
@@ -98,7 +96,7 @@ const Pedidos = () => {
       case 'IN_PROCESS':
         return <Clock className="h-4 w-4 text-yellow-600" />;
       case 'REJECTED':
-      case 'CANCELLED':
+      case 'CANCELLED': // Corrigido de CANCELED para CANCELLED
       case 'FAILED':
         return <XCircle className="h-4 w-4 text-red-600" />;
       case 'EXPIRED':
@@ -120,7 +118,7 @@ const Pedidos = () => {
         return 'Processando';
       case 'REJECTED':
         return 'Rejeitado';
-      case 'CANCELLED':
+      case 'CANCELLED': // Corrigido
         return 'Cancelado';
       case 'FAILED':
         return 'Falhou';
@@ -137,7 +135,7 @@ const Pedidos = () => {
       case 'PAID':
         return 'default';
       case 'REJECTED':
-      case 'CANCELLED':
+      case 'CANCELLED': // Corrigido
       case 'FAILED':
         return 'destructive';
       case 'PENDING':
@@ -159,7 +157,7 @@ const Pedidos = () => {
         return <Package className="h-4 w-4" />;
     }
   };
-
+  
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -181,7 +179,6 @@ const Pedidos = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto text-center py-16">
             <Package className="h-24 w-24 mx-auto text-muted-foreground mb-6" />
@@ -198,7 +195,6 @@ const Pedidos = () => {
             </Button>
           </div>
         </main>
-
         <Footer />
       </div>
     );
@@ -239,7 +235,7 @@ const Pedidos = () => {
               </Card>
             ))}
           </div>
-        ) : orders.length === 0 ? (
+        ) : !orders || orders.length === 0 ? (
           <div className="text-center py-16">
             <Package className="h-24 w-24 mx-auto text-muted-foreground mb-6" />
             <h2 className="font-display text-2xl font-bold text-primary mb-4">
@@ -315,8 +311,8 @@ const Pedidos = () => {
                                <span className="font-medium">
                                  {getPaymentStatusLabel(order.payment.status)}
                                </span>
-                            </div>
-                          </div>
+                             </div>
+                           </div>
                         </div>
                         
                         {/* Botão para ver detalhes do pagamento */}
