@@ -3,8 +3,27 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-import { createHmac } from "https://deno.land/std@0.190.0/crypto/crypto.ts";
 import { edgeEnv } from '../_shared/environment.ts';
+
+// Para HMAC no Deno
+async function createHmac(algorithm: string, key: string, data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(data);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: algorithm === 'sha256' ? 'SHA-256' : 'SHA-1' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,21 +39,18 @@ const webhookSchema = z.object({
 });
 
 // Função para validar assinatura do webhook
-const validateWebhookSignature = (
+const validateWebhookSignature = async (
   body: string,
   signature: string | null,
   secret: string
-): boolean => {
+): Promise<boolean> => {
   if (!signature || !secret) {
     console.log('Assinatura ou segredo não fornecidos');
     return false;
   }
 
   try {
-    const expectedSignature = createHmac("sha256", secret)
-      .update(body)
-      .digest("hex");
-    
+    const expectedSignature = await createHmac("sha256", secret, body);
     const providedSignature = signature.replace('sha256=', '');
     
     return expectedSignature === providedSignature;
@@ -62,7 +78,7 @@ serve(async (req) => {
     const webhookSecret = Deno.env.get('MERCADO_PAGO_WEBHOOK_SECRET');
     
     // Validar assinatura do webhook (opcional, mas recomendado)
-    if (webhookSecret && !validateWebhookSignature(requestBody, signature, webhookSecret)) {
+    if (webhookSecret && !(await validateWebhookSignature(requestBody, signature, webhookSecret))) {
       console.warn('Assinatura do webhook inválida');
       return new Response(JSON.stringify({ error: 'Invalid signature' }), { 
         status: 401,

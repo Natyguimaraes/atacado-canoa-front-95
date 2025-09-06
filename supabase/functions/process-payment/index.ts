@@ -206,30 +206,45 @@ serve(async (req) => {
       amount: paymentResponse.transaction_amount
     });
 
-    const { data: paymentRecord } = await supabaseAdmin.from('payments').insert({
-      user_id: validatedOrderData.user_id,
-      order_id: order.id,
-      external_id: paymentResponse.id.toString(),
-      amount: paymentResponse.transaction_amount,
-      method: paymentMethod.toUpperCase(),
-      status: paymentResponse.status?.toUpperCase() || 'PENDING',
-      provider: 'MERCADO_PAGO',
-      idempotency_key: idempotencyKey,
-      request_ip: clientIP,
-      user_agent: userAgent,
-      metadata: paymentMethod === 'pix' ? paymentResponse.point_of_interaction?.transaction_data : {
-        last_four_digits: paymentResponse.card?.last_four_digits,
-        cardholder_name: paymentResponse.card?.cardholder?.name,
-        installments: paymentData?.installments
-      },
-    }).select().single();
+    // Salvar o pagamento no banco se user_id estiver disponível
+    let paymentRecord = null;
+    if (validatedOrderData.user_id) {
+      const { data, error: paymentInsertError } = await supabaseAdmin.from('payments').insert({
+        user_id: validatedOrderData.user_id,
+        order_id: order?.id || null,
+        external_id: paymentResponse.id.toString(),
+        amount: paymentResponse.transaction_amount,
+        method: paymentMethod.toUpperCase(),
+        status: paymentResponse.status?.toUpperCase() || 'PENDING',
+        provider: 'MERCADO_PAGO',
+        idempotency_key: idempotencyKey,
+        request_ip: clientIP,
+        user_agent: userAgent,
+        metadata: paymentMethod === 'pix' ? paymentResponse.point_of_interaction?.transaction_data : {
+          last_four_digits: paymentResponse.card?.last_four_digits,
+          cardholder_name: paymentResponse.card?.cardholder?.name,
+          installments: paymentData?.installments
+        },
+      }).select().single();
 
-    // Salvar registro de idempotência
-    await supabaseAdmin.from('payment_idempotency').insert({
-      idempotency_key: idempotencyKey,
-      payment_id: paymentRecord.id,
-      external_id: paymentResponse.id.toString()
-    });
+      if (paymentInsertError) {
+        edgeEnv.log('error', 'Failed to save payment record', {
+          error: paymentInsertError,
+          paymentId: paymentResponse.id
+        });
+      } else {
+        paymentRecord = data;
+      }
+    }
+
+    // Salvar registro de idempotência se payment record foi criado
+    if (paymentRecord) {
+      await supabaseAdmin.from('payment_idempotency').insert({
+        idempotency_key: idempotencyKey,
+        payment_id: paymentRecord.id,
+        external_id: paymentResponse.id.toString()
+      });
+    }
 
     return new Response(JSON.stringify(paymentResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
