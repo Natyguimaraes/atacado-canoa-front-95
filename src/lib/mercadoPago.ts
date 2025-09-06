@@ -5,6 +5,8 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { envManager } from '@/lib/environment';
+import { logger as mpLogger } from '@/lib/logger';
 
 interface EnvironmentConfig {
   environment: 'production' | 'test';
@@ -21,12 +23,17 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
     return cachedConfig;
   }
 
+  mpLogger.debug('Loading Mercado Pago configuration', { environment: envManager.environment });
+
   try {
     const { data, error } = await supabase.functions.invoke('get-mp-public-key');
     
     if (error) {
+      mpLogger.error('Failed to fetch MP configuration', error);
       throw new Error(`Erro ao buscar configuração: ${error.message}`);
     }
+
+    mpLogger.info('MP configuration loaded successfully', { environment: data.environment });
 
     cachedConfig = {
       environment: data.environment === 'production' ? 'production' : 'test',
@@ -38,12 +45,12 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
 
     return cachedConfig;
   } catch (error) {
-    console.error('Erro ao carregar configuração do Mercado Pago:', error);
+    mpLogger.error('Error loading MP configuration, using fallback', error);
     // Fallback para desenvolvimento local
     cachedConfig = {
-      environment: 'test',
-      isProduction: false,
-      isTest: true,
+      environment: envManager.mercadoPagoEnvironment,
+      isProduction: envManager.isProduction,
+      isTest: !envManager.isProduction,
       publicKey: 'TEST-710ad6a1-8e41-44a1-9979-90e213360bc8', // Fallback
       accessToken: '',
     };

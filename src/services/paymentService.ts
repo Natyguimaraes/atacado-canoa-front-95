@@ -3,6 +3,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { OrderData, orderDataSchema } from '@/lib/schemas';
 import { generateIdempotencyKey, checkIdempotency } from '@/lib/idempotency';
+import { paymentLogger } from '@/lib/logger';
+import { paymentRateLimiter } from '@/lib/rateLimiter';
 
 type PaymentMethod = 'pix' | 'credit';
 
@@ -17,12 +19,29 @@ type PaymentMethod = 'pix' | 'credit';
 export const processPayment = async (
   orderData: OrderData, 
   paymentMethod: PaymentMethod,
-  paymentData?: any // Parâmetro opcional para os dados do cartão
+  paymentData?: any
 ) => {
+  const userId = orderData.user_id;
+  
+  // Verificar rate limiting
+  if (!paymentRateLimiter.isAllowed(userId)) {
+    const remaining = paymentRateLimiter.getRemainingTime(userId);
+    const minutes = Math.ceil(remaining / 60000);
+    paymentLogger.warn('Payment rate limit exceeded', { userId, remainingMinutes: minutes });
+    throw new Error(`Muitas tentativas de pagamento. Tente novamente em ${minutes} minutos.`);
+  }
+
+  paymentLogger.info('Processing payment request', { 
+    userId, 
+    method: paymentMethod, 
+    amount: orderData.total_amount 
+  });
   // Validar dados do pedido antes de enviar
   try {
     orderDataSchema.parse(orderData);
+    paymentLogger.debug('Order data validation passed');
   } catch (validationError: any) {
+    paymentLogger.error('Order data validation failed', validationError);
     throw new Error(`Dados do pedido inválidos: ${validationError.message}`);
   }
 
@@ -32,6 +51,7 @@ export const processPayment = async (
   // Verificar se já existe um pagamento com esta chave
   const existingPayment = await checkIdempotency(idempotencyKey);
   if (existingPayment) {
+    paymentLogger.warn('Duplicate payment attempt detected', { userId, idempotencyKey });
     return {
       id: existingPayment.external_id,
       status: 'duplicate',
@@ -51,14 +71,22 @@ export const processPayment = async (
   });
 
   if (error) {
+    paymentLogger.error('Payment service communication error', { error: error.message, userId });
     // Erros de rede ou permissão na chamada da função
     throw new Error(`Erro de comunicação com o servidor: ${error.message}`);
   }
   
   if (data.error) {
+    paymentLogger.error('Payment processing error', { error: data.error, userId });
     // Erro de lógica retornado pela nossa função (status 400)
     throw new Error(data.error);
   }
+
+  paymentLogger.info('Payment processed successfully', { 
+    paymentId: data.id, 
+    status: data.status, 
+    userId 
+  });
 
   return data;
 };

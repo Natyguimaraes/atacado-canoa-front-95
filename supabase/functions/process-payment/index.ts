@@ -3,6 +3,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { edgeEnv } from '../_shared/environment.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,6 +44,12 @@ const generateIdempotencyKey = (userId: string, orderData: any): string => {
 };
 
 serve(async (req) => {
+  // Log inicial da requisição
+  edgeEnv.log('info', 'Payment request received', {
+    method: req.method,
+    url: req.url,
+    environment: edgeEnv.environment
+  });
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -64,22 +71,14 @@ serve(async (req) => {
     const generatedKey = generateIdempotencyKey(validatedOrderData.user_id, validatedOrderData);
     const idempotencyKey = clientIdempotencyKey || generatedKey;
     
-    // Determina o ambiente baseado na URL do Supabase
-    const isProduction = Deno.env.get('SUPABASE_URL')?.includes('supabase.co');
+    // Usar sistema de ambiente para obter token
+    const accessToken = edgeEnv.getMercadoPagoToken();
     
-    // Usa o Access Token apropriado para o ambiente
-    const accessToken = isProduction
-      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
-      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
-
-    if (!accessToken) {
-      console.error('Tokens disponíveis:', {
-        test: !!Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST'),
-        main: !!Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN'),
-        prod: !!Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
-      });
-      throw new Error("Access Token do Mercado Pago não configurado.");
-    }
+    edgeEnv.log('info', 'Payment processing started', {
+      environment: edgeEnv.environment,
+      mercadoPagoEnv: edgeEnv.mercadoPagoEnvironment,
+      idempotencyKey
+    });
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -95,7 +94,7 @@ serve(async (req) => {
       .single();
 
     if (existingPayment) {
-      console.log('Pagamento duplicado detectado, retornando pagamento existente');
+      edgeEnv.log('warn', 'Duplicate payment detected', { idempotencyKey, existingPayment });
       return new Response(JSON.stringify({
         id: existingPayment.external_id,
         status: 'duplicate',
@@ -193,9 +192,19 @@ serve(async (req) => {
 
     const paymentResponse = await response.json();
     if (!response.ok) {
-      console.error("Detalhe do erro do Mercado Pago:", paymentResponse);
+      edgeEnv.log('error', 'Mercado Pago API error', {
+        status: response.status,
+        error: paymentResponse,
+        idempotencyKey
+      });
       throw new Error(`[Mercado Pago] ${paymentResponse.message || 'Erro desconhecido.'}`);
     }
+
+    edgeEnv.log('info', 'Payment created successfully', {
+      paymentId: paymentResponse.id,
+      status: paymentResponse.status,
+      amount: paymentResponse.transaction_amount
+    });
 
     const { data: paymentRecord } = await supabaseAdmin.from('payments').insert({
       user_id: validatedOrderData.user_id,

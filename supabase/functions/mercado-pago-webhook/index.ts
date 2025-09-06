@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { createHmac } from "https://deno.land/std@0.190.0/crypto/crypto.ts";
+import { edgeEnv } from '../_shared/environment.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -82,12 +83,12 @@ serve(async (req) => {
       const paymentId = validatedNotification.data.id;
 
       // Com o ID, nós buscamos os detalhes completos do pagamento na API do Mercado Pago.
-      const isProduction = Deno.env.get('SUPABASE_URL')?.includes('supabase.co');
-      const accessToken = isProduction
-        ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
-        : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
-        
-      if (!accessToken) throw new Error("MERCADO_PAGO_ACCESS_TOKEN não configurado.");
+      const accessToken = edgeEnv.getMercadoPagoToken();
+      
+      edgeEnv.log('info', 'Processing webhook notification', {
+        paymentId,
+        environment: edgeEnv.environment
+      });
 
       const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },

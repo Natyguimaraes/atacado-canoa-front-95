@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import ScrollToTop from "@/components/ScrollToTop";
+import DevTools from '@/components/DevTools';
+import { envManager } from '@/lib/environment';
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
@@ -23,7 +25,14 @@ import NotFound from "./pages/NotFound";
 // NOVO: Importar a página de gráficos
 import Graficos from "./pages/Admin/Graficos";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: envManager.isProduction ? 3 : 1,
+      staleTime: envManager.isProduction ? 300000 : 60000, // 5min prod, 1min dev
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -52,6 +61,7 @@ const App = () => (
               <Route path="/status-pagamento/:id" element={<StatusPagamento />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <DevTools />
           </BrowserRouter>
         </TooltipProvider>
       </CartProvider>
