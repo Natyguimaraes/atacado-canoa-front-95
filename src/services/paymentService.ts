@@ -48,38 +48,24 @@ export const processPayment = async (
   // Gerar chave de idempotência
   const idempotencyKey = generateIdempotencyKey(orderData.user_id, orderData);
 
-  // Detectar URL base para a API
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  let apiUrl = '/api/process-payment';
-  
-  if (hostname.includes('atacado-canoa-front-95.vercel.app')) {
-    apiUrl = 'https://atacado-canoa-front-95.vercel.app/api/process-payment';
-  }
-
-  // Chamar API da Vercel
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-idempotency-key': idempotencyKey
-    },
-    body: JSON.stringify({
+  // Usar Supabase Edge Function em vez da API da Vercel
+  const { data, error } = await supabase.functions.invoke('process-payment', {
+    body: {
       orderData,
       paymentMethod,
       paymentData,
-    })
+    },
+    headers: {
+      'x-idempotency-key': idempotencyKey
+    }
   });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Erro na comunicação com o servidor');
+  if (error) {
+    paymentLogger.error('Payment processing error', { error, userId });
+    throw new Error(error.message || 'Erro na comunicação com o servidor');
   }
 
-  const data = await response.json();
-  
   if (data.error) {
     paymentLogger.error('Payment processing error', { error: data.error, userId });
-    // Erro de lógica retornado pela nossa função (status 400)
     throw new Error(data.error);
   }
 

@@ -1,13 +1,11 @@
-// api/process-payment.ts
-
-import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-idempotency-key',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+}
 
 // Função para gerar uma chave de idempotência no servidor
 const generateIdempotencyKey = (userId: string, orderData: any): string => {
@@ -16,32 +14,37 @@ const generateIdempotencyKey = (userId: string, orderData: any): string => {
   return `${userId}-${timestamp}-${btoa(dataString).slice(0, 32)}`;
 };
 
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Handle CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type, x-idempotency-key');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-
+serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return new Response(null, { headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 
   try {
+    console.log('=== PROCESS PAYMENT ===')
+    
     const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { orderData, paymentMethod, paymentData } = req.body;
+    const { orderData, paymentMethod, paymentData } = await req.json();
     
-    // **CORREÇÃO: Gera uma chave de idempotência se não for fornecida**
-    const idempotencyKey = (req.headers['x-idempotency-key'] as string) || generateIdempotencyKey(orderData.user_id, orderData);
+    // Gera uma chave de idempotência se não for fornecida
+    const idempotencyKey = req.headers.get('x-idempotency-key') || generateIdempotencyKey(orderData.user_id, orderData);
 
+    console.log('Processing payment:', { 
+      userId: orderData.user_id, 
+      method: paymentMethod, 
+      amount: orderData.total_amount 
+    });
 
     // Verificar idempotência se a chave for fornecida
     if (idempotencyKey) {
@@ -54,25 +57,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (idempotencyError) {
         console.error('Erro ao verificar idempotência:', idempotencyError);
       } else if (existingPayment) {
-        return res.status(200).json({
-          id: existingPayment.external_id,
-          status: 'duplicate',
-          message: 'Pagamento já processado'
-        });
+        console.log('Payment already processed:', existingPayment.external_id);
+        return new Response(
+          JSON.stringify({
+            id: existingPayment.external_id,
+            status: 'duplicate',
+            message: 'Pagamento já processado'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
     // Determinar token do Mercado Pago baseado no ambiente
-    const isProduction = process.env.NODE_ENV === 'production' && 
-                        process.env.VERCEL_URL && 
-                        !process.env.VERCEL_URL.includes('vercel.app');
+    const hostname = req.headers.get('origin') || '';
+    const isProduction = hostname.includes('atacado-canoa-front-95.vercel.app');
     
     const accessToken = isProduction 
-      ? process.env.MERCADO_PAGO_ACCESS_TOKEN_PROD
-      : process.env.MERCADO_PAGO_ACCESS_TOKEN_TEST;
+      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD')
+      : Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST');
+
+    console.log('Using environment:', isProduction ? 'production' : 'test');
 
     if (!accessToken) {
-      return res.status(500).json({ error: 'Token do Mercado Pago não configurado' });
+      console.error('Missing Mercado Pago token for environment:', isProduction ? 'production' : 'test');
+      return new Response(
+        JSON.stringify({ error: 'Token do Mercado Pago não configurado' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Criar pagamento no Mercado Pago
@@ -97,6 +109,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       paymentPayload.issuer_id = paymentData.issuer_id;
     }
 
+    console.log('Sending payment to Mercado Pago:', {
+      amount: paymentPayload.transaction_amount,
+      method: paymentMethod,
+      email: paymentPayload.payer.email
+    });
+
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
@@ -108,11 +126,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const mpResult = await mpResponse.json();
 
+    console.log('Mercado Pago response status:', mpResponse.status);
+    console.log('Mercado Pago result:', { id: mpResult.id, status: mpResult.status });
+
     if (!mpResponse.ok) {
       console.error('Erro do Mercado Pago:', mpResult);
-      return res.status(400).json({ 
-        error: mpResult.message || 'Erro ao processar pagamento' 
-      });
+      return new Response(
+        JSON.stringify({ 
+          error: mpResult.message || 'Erro ao processar pagamento' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Salvar pagamento no banco
@@ -133,11 +157,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (insertError) {
       console.error('Erro ao salvar pagamento:', insertError);
+    } else {
+      console.log('Payment saved to database');
     }
 
     // Salvar chave de idempotência
     if (idempotencyKey) {
-      await supabase
+      const { error: idempotencyInsertError } = await supabase
         .from('payment_idempotency')
         .insert({
           idempotency_key: idempotencyKey,
@@ -145,20 +171,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           external_id: mpResult.id,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         });
+      
+      if (idempotencyInsertError) {
+        console.error('Erro ao salvar idempotência:', idempotencyInsertError);
+      }
     }
 
-    return res.status(200).json({
-      id: mpResult.id,
-      status: mpResult.status,
-      metadata: {
-        qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
-        qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
-        expiration_date: mpResult.date_of_expiration
-      }
-    });
+    return new Response(
+      JSON.stringify({
+        id: mpResult.id,
+        status: mpResult.status,
+        metadata: {
+          qr_code_base64: mpResult.point_of_interaction?.transaction_data?.qr_code_base64,
+          qr_code: mpResult.point_of_interaction?.transaction_data?.qr_code,
+          expiration_date: mpResult.date_of_expiration
+        }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error: any) {
     console.error('Erro no processamento:', error);
-    return res.status(500).json({ error: error.message });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
-}
+})
