@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Package, Clock, CheckCircle, XCircle, CreditCard, QrCode, AlertCircle, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,41 +11,73 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface Order {
+interface OrderWithPayment {
   id: string;
   total_amount: number;
   status: string;
   payment_method: string;
   created_at: string;
   items: any;
+  payment: {
+    id: string;
+    external_id: string;
+    status: string;
+    method: string;
+    amount: number;
+    created_at: string;
+    metadata: any;
+  } | null;
 }
 
 const Pedidos = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderWithPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      fetchOrders();
+      fetchOrdersWithPayments();
     }
   }, [isAuthenticated, user]);
 
-  const fetchOrders = async () => {
+  const fetchOrdersWithPayments = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar pedidos com seus pagamentos
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
+      if (ordersError) {
+        throw ordersError;
       }
 
-      setOrders(data || []);
+      // Para cada pedido, buscar o pagamento correspondente
+      const ordersWithPayments = await Promise.all(
+        (ordersData || []).map(async (order) => {
+          const { data: paymentData, error: paymentError } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('user_id', user?.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (paymentError) {
+            console.error('Error fetching payment:', paymentError);
+          }
+
+          return {
+            ...order,
+            payment: paymentData?.[0] || null
+          };
+        })
+      );
+
+      setOrders(ordersWithPayments);
     } catch (error: any) {
+      console.error('Error fetching orders:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível carregar seus pedidos.',
@@ -56,45 +88,92 @@ const Pedidos = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-success" />;
-      case 'cancelled':
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      case 'processing':
-        return <Clock className="h-4 w-4 text-warning" />;
+  const getPaymentStatusIcon = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'APPROVED':
+      case 'PAID':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'PENDING':
+      case 'IN_PROCESS':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'REJECTED':
+      case 'CANCELLED':
+      case 'FAILED':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      case 'EXPIRED':
+        return <AlertCircle className="h-4 w-4 text-gray-600" />;
       default:
         return <Package className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending':
+  const getPaymentStatusLabel = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'APPROVED':
+        return 'Aprovado';
+      case 'PAID':
+        return 'Pago';
+      case 'PENDING':
         return 'Pendente';
-      case 'processing':
+      case 'IN_PROCESS':
         return 'Processando';
-      case 'completed':
-        return 'Concluído';
-      case 'cancelled':
+      case 'REJECTED':
+        return 'Rejeitado';
+      case 'CANCELLED':
         return 'Cancelado';
+      case 'FAILED':
+        return 'Falhou';
+      case 'EXPIRED':
+        return 'Expirado';
       default:
-        return status;
+        return status || 'Desconhecido';
     }
   };
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'completed':
+  const getPaymentStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status?.toUpperCase()) {
+      case 'APPROVED':
+      case 'PAID':
         return 'default';
-      case 'cancelled':
+      case 'REJECTED':
+      case 'CANCELLED':
+      case 'FAILED':
         return 'destructive';
-      case 'processing':
+      case 'PENDING':
+      case 'IN_PROCESS':
         return 'secondary';
       default:
         return 'outline';
     }
+  };
+
+  const getPaymentMethodIcon = (method: string) => {
+    switch (method?.toUpperCase()) {
+      case 'PIX':
+        return <QrCode className="h-4 w-4" />;
+      case 'CREDIT':
+      case 'CARD':
+        return <CreditCard className="h-4 w-4" />;
+      default:
+        return <Package className="h-4 w-4" />;
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   if (!isAuthenticated) {
@@ -141,7 +220,7 @@ const Pedidos = () => {
             Meus Pedidos
           </h1>
           <p className="text-muted-foreground">
-            Acompanhe o status dos seus pedidos
+            Acompanhe o status real dos seus pedidos e pagamentos
           </p>
         </div>
 
@@ -177,48 +256,114 @@ const Pedidos = () => {
         ) : (
           <div className="space-y-6">
             {orders.map((order) => (
-              <Card key={order.id}>
-                <CardHeader>
+              <Card key={order.id} className="overflow-hidden">
+                <CardHeader className="bg-muted/30">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-lg">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Package className="h-5 w-5" />
                         Pedido #{order.id.slice(0, 8)}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        Realizado em {formatDate(order.created_at)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(order.status)}
-                      <Badge variant={getStatusVariant(order.status)}>
-                        {getStatusLabel(order.status)}
-                      </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-2">
+                        {getPaymentMethodIcon(order.payment?.method || order.payment_method)}
+                        <span className="text-sm font-medium">
+                          {order.payment?.method === 'PIX' ? 'PIX' : 'Cartão de Crédito'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getPaymentStatusIcon(order.payment?.status || 'pending')}
+                        <Badge variant={getPaymentStatusVariant(order.payment?.status || 'pending')}>
+                          {getPaymentStatusLabel(order.payment?.status || 'pending')}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
                 
-                <CardContent>
+                <CardContent className="p-6">
                   <div className="space-y-4">
+                    {/* Informações do Pagamento */}
+                    {order.payment && (
+                      <div className="bg-muted/20 p-4 rounded-lg">
+                        <h4 className="font-medium mb-3 flex items-center gap-2">
+                          <CreditCard className="h-4 w-4" />
+                          Informações do Pagamento
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">ID do Pagamento:</span>
+                            <p className="font-mono text-xs">{order.payment.external_id}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Processado em:</span>
+                            <p>{formatDate(order.payment.created_at)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Valor Pago:</span>
+                            <p className="font-semibold">{formatCurrency(order.payment.amount)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Status:</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              {getPaymentStatusIcon(order.payment.status)}
+                              <span className="font-medium">
+                                {getPaymentStatusLabel(order.payment.status)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Botão para ver detalhes do pagamento */}
+                        {order.payment.external_id && (
+                          <div className="mt-4">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to={`/status-pagamento/${order.payment.external_id}`} className="flex items-center gap-2">
+                                <Eye className="h-4 w-4" />
+                                Ver Detalhes do Pagamento
+                              </Link>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Itens do Pedido */}
                     <div>
-                      <h4 className="font-medium mb-2">Itens do Pedido</h4>
+                      <h4 className="font-medium mb-3">Itens do Pedido</h4>
                       <div className="space-y-2">
                         {Array.isArray(order.items) ? order.items.map((item: any, index: number) => (
-                          <div key={`${item.id}-${index}`} className="flex justify-between items-center text-sm">
-                            <span>
-                              {item.name} - Tamanho: {item.size || 'N/A'} (x{item.quantity})
-                            </span>
-                            <span className="font-medium">
-                              R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}
-                            </span>
+                          <div key={`${item.id}-${index}`} className="flex justify-between items-center text-sm bg-muted/10 p-3 rounded">
+                            <div className="flex items-center gap-3">
+                              {item.image && (
+                                <img 
+                                  src={item.image} 
+                                  alt={item.name}
+                                  className="w-12 h-12 object-cover rounded"
+                                />
+                              )}
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                <p className="text-muted-foreground">
+                                  Tamanho: {item.size || 'N/A'} • Quantidade: {item.quantity}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">
+                                {formatCurrency(item.price * item.quantity)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(item.price)} cada
+                              </p>
+                            </div>
                           </div>
                         )) : (
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm text-muted-foreground p-3 bg-muted/10 rounded">
                             Itens não disponíveis
                           </div>
                         )}
@@ -227,15 +372,19 @@ const Pedidos = () => {
                     
                     <Separator />
                     
-                    <div className="flex justify-between items-center">
+                    {/* Total */}
+                    <div className="flex justify-between items-center bg-primary/5 p-4 rounded-lg">
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          Pagamento: {order.payment_method === 'PIX' || order.payment_method === 'pix' ? 'PIX' : 'Cartão de Crédito'}
+                        <p className="text-sm text-muted-foreground mb-1">
+                          Total do Pedido
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {order.items?.length || 0} {order.items?.length === 1 ? 'item' : 'itens'}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-semibold text-primary">
-                          Total: R$ {order.total_amount.toFixed(2).replace('.', ',')}
+                        <p className="text-2xl font-bold text-primary">
+                          {formatCurrency(order.total_amount)}
                         </p>
                       </div>
                     </div>
