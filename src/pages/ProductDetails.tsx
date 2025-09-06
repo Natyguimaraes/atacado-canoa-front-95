@@ -267,19 +267,24 @@ const ProductDetails = () => {
                     <h3 className="font-semibold text-lg">Cor:</h3>
                     <div className="flex flex-wrap gap-3">
                       {product.colors.map((color) => (
-                        <Button 
-                          key={color} 
-                          variant={selectedColor === color ? 'default' : 'outline'} 
-                          className={`h-12 px-6 rounded-lg transition-all hover-scale ${
+                        <div
+                          key={color}
+                          className={`relative flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all hover-scale ${
                             selectedColor === color 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'bg-muted/50 text-foreground hover:bg-muted border-border'
+                              ? 'border-primary bg-primary/10' 
+                              : 'border-border bg-card hover:border-primary/50'
                           }`}
-                          aria-label={color}
                           onClick={() => setSelectedColor(color)}
                         >
-                          <span className="font-medium">{color}</span>
-                        </Button>
+                          <div 
+                            className="w-6 h-6 rounded-full border-2 border-border shadow-sm"
+                            style={{ backgroundColor: color.toLowerCase() }}
+                          />
+                          <span className="font-medium text-sm">{color}</span>
+                          {selectedColor === color && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
