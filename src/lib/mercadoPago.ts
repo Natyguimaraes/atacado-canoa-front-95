@@ -32,8 +32,8 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
     const isProduction = hostname.includes('atacado-canoa-front-95.vercel.app');
     const environment = isProduction ? 'production' : 'test';
     
-    // 2. Invoca a Supabase Function 'get-mp-config'
-    const { data, error } = await invokeSupabaseFunction('get-mp-config', { environment });
+    // Tentar primeiro a função de debug
+    const { data, error } = await invokeSupabaseFunction('debug-mp-config');
 
     // Se a função retornar um erro, lança para o bloco catch
     if (error) {
