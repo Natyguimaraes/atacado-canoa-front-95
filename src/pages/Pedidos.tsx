@@ -43,10 +43,21 @@ const Pedidos = () => {
 
   const fetchOrdersWithPayments = async () => {
     try {
-      // Buscar pedidos com seus pagamentos
+      // Buscar pedidos com pagamentos em uma única query usando JOIN
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          payments!left (
+            id,
+            external_id,
+            status,
+            method,
+            amount,
+            created_at,
+            metadata
+          )
+        `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
@@ -54,26 +65,11 @@ const Pedidos = () => {
         throw ordersError;
       }
 
-      // Para cada pedido, buscar o pagamento correspondente
-      const ordersWithPayments = await Promise.all(
-        (ordersData || []).map(async (order) => {
-          const { data: paymentData, error: paymentError } = await supabase
-            .from('payments')
-            .select('*')
-            .eq('user_id', user?.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          if (paymentError) {
-            console.error('Error fetching payment:', paymentError);
-          }
-
-          return {
-            ...order,
-            payment: paymentData?.[0] || null
-          };
-        })
-      );
+      // Transformar os dados para o formato esperado
+      const ordersWithPayments = ordersData?.map(order => ({
+        ...order,
+        payment: order.payments?.[0] || null
+      })) || [];
 
       setOrders(ordersWithPayments);
     } catch (error: any) {
