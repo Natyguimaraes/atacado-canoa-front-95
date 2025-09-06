@@ -51,7 +51,7 @@ const Pedidos = () => {
         .from('orders')
         .select(`
           *,
-          payments!payments_order_id_fkey ( * )
+          payments!order_id ( * )
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
