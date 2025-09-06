@@ -47,17 +47,6 @@ export const processPayment = async (
 
   // Gerar chave de idempotência
   const idempotencyKey = generateIdempotencyKey(orderData.user_id, orderData);
-  
-  // Verificar se já existe um pagamento com esta chave
-  const existingPayment = await checkIdempotency(idempotencyKey);
-  if (existingPayment) {
-    paymentLogger.warn('Duplicate payment attempt detected', { userId, idempotencyKey });
-    return {
-      id: existingPayment.external_id,
-      status: 'duplicate',
-      message: 'Pagamento já processado'
-    };
-  }
 
   // Chamar API da Vercel em vez da Edge Function
   const response = await fetch('/api/process-payment', {
