@@ -56,6 +56,9 @@ class EnvironmentManager {
     } else if (isLovablePreview) {
       environment = 'staging';
       mercadoPagoEnvironment = 'test';
+    } else if (isVercel && hostname.includes('atacado-canoa-front-95.vercel.app')) {
+      environment = 'production';
+      mercadoPagoEnvironment = 'production';
     } else if (isVercel && hostname.includes('vercel.app')) {
       environment = 'staging';
       mercadoPagoEnvironment = 'test';

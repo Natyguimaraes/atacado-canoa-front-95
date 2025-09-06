@@ -27,8 +27,13 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
   try {
     logger.info('[App] Loading MP configuration from Supabase Function...');
     
+    // Detectar ambiente
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const isProduction = hostname.includes('atacado-canoa-front-95.vercel.app');
+    const environment = isProduction ? 'production' : 'test';
+    
     // 2. Invoca a Supabase Function 'get-mp-config'
-    const { data, error } = await invokeSupabaseFunction('get-mp-config');
+    const { data, error } = await invokeSupabaseFunction('get-mp-config', { environment });
 
     // Se a função retornar um erro, lança para o bloco catch
     if (error) {
@@ -50,9 +55,13 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
     logger.error('[App] Error loading MP configuration from Supabase, using fallback.', err);
     
     // 4. Fallback: Em caso de erro, usa a chave do arquivo .env como segurança
-    // Isso garante que o ambiente de desenvolvimento não pare de funcionar
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const isProduction = hostname.includes('atacado-canoa-front-95.vercel.app');
+    
     return {
-      publicKey: import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY_TEST,
+      publicKey: isProduction 
+        ? import.meta.env.VITE_MERCADOPAGO_PRODUCTION_KEY 
+        : import.meta.env.VITE_MERCADOPAGO_TEST_KEY,
     };
   }
 };

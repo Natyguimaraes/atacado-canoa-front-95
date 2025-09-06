@@ -14,7 +14,16 @@ serve(async (req) => {
   try {
     console.log('=== GET MP CONFIG ===')
     
-    const { environment } = await req.json()
+    // Parse body only for POST requests
+    let environment = 'test'
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json()
+        environment = body.environment || 'test'
+      } catch (e) {
+        console.log('No body or invalid JSON, using default environment:', environment)
+      }
+    }
     console.log('Environment requested:', environment)
 
     // Get the appropriate keys based on environment

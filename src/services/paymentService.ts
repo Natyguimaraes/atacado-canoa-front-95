@@ -48,8 +48,16 @@ export const processPayment = async (
   // Gerar chave de idempotência
   const idempotencyKey = generateIdempotencyKey(orderData.user_id, orderData);
 
-  // Chamar API da Vercel em vez da Edge Function
-  const response = await fetch('/api/process-payment', {
+  // Detectar URL base para a API
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  let apiUrl = '/api/process-payment';
+  
+  if (hostname.includes('atacado-canoa-front-95.vercel.app')) {
+    apiUrl = 'https://atacado-canoa-front-95.vercel.app/api/process-payment';
+  }
+
+  // Chamar API da Vercel
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
