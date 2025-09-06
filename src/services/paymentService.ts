@@ -59,22 +59,26 @@ export const processPayment = async (
     };
   }
 
-  const { data, error } = await supabase.functions.invoke('process-payment', {
-    body: {
+  // Chamar API da Vercel em vez da Edge Function
+  const response = await fetch('/api/process-payment', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-idempotency-key': idempotencyKey
+    },
+    body: JSON.stringify({
       orderData,
       paymentMethod,
       paymentData,
-    },
-    headers: {
-      'x-idempotency-key': idempotencyKey
-    }
+    })
   });
 
-  if (error) {
-    paymentLogger.error('Payment service communication error', { error: error.message, userId });
-    // Erros de rede ou permissão na chamada da função
-    throw new Error(`Erro de comunicação com o servidor: ${error.message}`);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Erro na comunicação com o servidor');
   }
+
+  const data = await response.json();
   
   if (data.error) {
     paymentLogger.error('Payment processing error', { error: data.error, userId });

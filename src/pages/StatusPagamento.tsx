@@ -39,8 +39,12 @@ export default function StatusPagamento() {
       
       // Primeiro, verificar status atualizado no Mercado Pago
       try {
-        await supabase.functions.invoke('check-payment-status', {
-          body: { paymentId }
+        await fetch('/api/check-payment-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ paymentId })
         });
       } catch (checkError) {
         console.warn('Erro ao verificar status:', checkError);

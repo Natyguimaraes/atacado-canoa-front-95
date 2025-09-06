@@ -26,12 +26,14 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
   mpLogger.debug('Loading Mercado Pago configuration', { environment: envManager.environment });
 
   try {
-    const { data, error } = await supabase.functions.invoke('get-mp-public-key');
+    const response = await fetch('/api/get-mp-public-key');
     
-    if (error) {
-      mpLogger.error('Failed to fetch MP configuration', error);
-      throw new Error(`Erro ao buscar configuração: ${error.message}`);
+    if (!response.ok) {
+      throw new Error('Erro ao buscar configuração do Mercado Pago');
     }
+    
+    const data = await response.json();
+    
 
     mpLogger.info('MP configuration loaded successfully', { environment: data.environment });
 

@@ -19,20 +19,26 @@ export const getInstallmentOptions = async (
   issuerId: string
 ): Promise<InstallmentOption[]> => {
   try {
-    const { data, error } = await supabase.functions.invoke('get-installments', {
-      body: {
+    const response = await fetch('/api/get-installments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         amount,
         payment_method_id: paymentMethodId,
         issuer_id: issuerId
-      }
+      })
     });
 
-    if (error) {
-      console.error('Erro ao buscar opções de parcelamento:', error);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Erro ao buscar opções de parcelamento:', errorData);
       return [];
     }
 
-    return data.installments || [];
+    const data = await response.json();
+    return data || [];
   } catch (error) {
     console.error('Erro ao carregar parcelamento:', error);
     return [];
