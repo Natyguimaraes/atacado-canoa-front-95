@@ -43,12 +43,12 @@ const Pedidos = () => {
 
   const fetchOrdersWithPayments = async () => {
     try {
-      // Buscar pedidos com pagamentos em uma única query usando JOIN
+      // Buscar pedidos com pagamentos usando o relacionamento order_id
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
           *,
-          payments!left (
+          payments!order_id (
             id,
             external_id,
             status,
@@ -68,7 +68,7 @@ const Pedidos = () => {
       // Transformar os dados para o formato esperado
       const ordersWithPayments = ordersData?.map(order => ({
         ...order,
-        payment: order.payments?.[0] || null
+        payment: Array.isArray(order.payments) ? order.payments[0] : order.payments
       })) || [];
 
       setOrders(ordersWithPayments);
