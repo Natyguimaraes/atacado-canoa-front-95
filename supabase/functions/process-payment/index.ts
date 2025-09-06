@@ -106,6 +106,8 @@ serve(async (req) => {
     console.log(`Pedido ${newOrder.id} e Pagamento associado foram criados com status ${paymentStatus}.`);
 
     return new Response(JSON.stringify({
+      success: true,
+      id: mpResult.id,
       paymentId: mpResult.id,
       status: mpResult.status,
       orderId: newOrder.id,
