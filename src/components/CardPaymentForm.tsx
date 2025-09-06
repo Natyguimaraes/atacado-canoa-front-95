@@ -43,13 +43,9 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
   } | null>(null);
   const initialization = {
     amount: amount,
-    // --- INÍCIO DA CORREÇÃO ---
-    // Adicionamos o e-mail do pagador na inicialização do formulário
-    // para que o token seja gerado com o e-mail de teste correto.
     payer: {
       email: payerEmail,
     },
-    // --- FIM DA CORREÇÃO ---
   };
 
   const customization = {

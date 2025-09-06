@@ -126,19 +126,46 @@ serve(async (req) => {
     const idempotencyKey = req.headers.get('x-idempotency-key')
     console.log('Idempotency key:', idempotencyKey)
 
-    // Create minimal test payment
-    const testPayload = {
+    // Create payment payload based on method
+    let paymentPayload: any = {
       transaction_amount: parseFloat(orderData.total_amount.toString()),
-      description: `Test payment - ${orderData.order_id || 'no-order-id'}`,
-      payment_method_id: 'pix',
+      description: `Pedido - ${orderData.order_id || Date.now()}`,
       payer: {
-        email: orderData.customer_email || orderData.shipping_data?.email || 'test@test.com',
-        first_name: orderData.customer_name?.split(' ')[0] || orderData.shipping_data?.fullName?.split(' ')[0] || 'Test',
-        last_name: orderData.customer_name?.split(' ').slice(1).join(' ') || orderData.shipping_data?.fullName?.split(' ').slice(1).join(' ') || 'User'
+        email: orderData.shipping_data?.email || orderData.customer_email || 'test@test.com',
+        first_name: orderData.shipping_data?.fullName?.split(' ')[0] || orderData.customer_name?.split(' ')[0] || 'Test',
+        last_name: orderData.shipping_data?.fullName?.split(' ').slice(1).join(' ') || orderData.customer_name?.split(' ').slice(1).join(' ') || 'User',
+        identification: {
+          type: 'CPF',
+          number: orderData.shipping_data?.cpf?.replace(/\D/g, '') || orderData.customer_cpf?.replace(/\D/g, '') || '11111111111'
+        }
       }
     }
 
-    console.log('Test payment payload:', testPayload)
+    if (paymentMethod === 'pix') {
+      paymentPayload.payment_method_id = 'pix'
+    } else if (paymentMethod === 'credit' && paymentData) {
+      // Para cartão de crédito, usar os dados do token
+      paymentPayload.token = paymentData.token
+      paymentPayload.installments = paymentData.installments || 1
+      paymentPayload.payment_method_id = paymentData.payment_method_id
+      paymentPayload.issuer_id = paymentData.issuer_id
+      
+      console.log('Credit card payment detected')
+      console.log('Payment method ID:', paymentData.payment_method_id)
+      console.log('Installments:', paymentData.installments)
+      console.log('Token present:', !!paymentData.token)
+    } else {
+      console.error('Invalid payment method or missing payment data')
+      return new Response(
+        JSON.stringify({ error: 'Invalid payment method or missing payment data' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Payment payload:', {
+      ...paymentPayload,
+      token: paymentPayload.token ? '[HIDDEN]' : undefined
+    })
 
     // Prepare headers for Mercado Pago
     const mpHeaders = {
@@ -157,7 +184,7 @@ serve(async (req) => {
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: mpHeaders,
-      body: JSON.stringify(testPayload),
+      body: JSON.stringify(paymentPayload),
     })
 
     console.log('MP Response status:', mpResponse.status)
