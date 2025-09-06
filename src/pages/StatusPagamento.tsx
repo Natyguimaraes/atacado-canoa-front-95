@@ -138,6 +138,16 @@ export default function StatusPagamento() {
     const pixMetadata = paymentData.metadata as unknown as PixPaymentMetadata | null;
     const isExpired = pixMetadata?.expirationDate && isPaymentExpired(pixMetadata.expirationDate);
 
+    // Debug logs
+    console.log('StatusPagamento Debug:', {
+      paymentData,
+      status: paymentData.status,
+      method: paymentData.method,
+      pixMetadata,
+      isExpired,
+      hasQrCode: !!pixMetadata?.qrCodeBase64
+    });
+
     return (
       <>
         <Card className="mb-6">
@@ -180,6 +190,24 @@ export default function StatusPagamento() {
         
         {(paymentData.status.toUpperCase() === 'PENDING' || paymentData.status.toUpperCase() === 'IN_PROCESS') && !isExpired && (
           <>
+            {/* Debug card para PIX */}
+            {paymentData.method === "PIX" && (
+              <Card className="border-blue-200 bg-blue-50 mb-4">
+                <CardHeader>
+                  <CardTitle className="text-sm text-blue-900">Debug PIX</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="text-xs overflow-auto">{JSON.stringify({ 
+                    method: paymentData.method,
+                    hasMetadata: !!pixMetadata,
+                    hasQrCode: !!pixMetadata?.qrCodeBase64,
+                    hasQrString: !!pixMetadata?.qrCode,
+                    metadata: pixMetadata 
+                  }, null, 2)}</pre>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Exibir QR Code PIX se disponível */}
             {paymentData.method === "PIX" && pixMetadata?.qrCodeBase64 && (
               <Card className="border-yellow-200 bg-yellow-50">
@@ -220,6 +248,24 @@ export default function StatusPagamento() {
                       </p>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Fallback para PIX sem QR code */}
+            {paymentData.method === "PIX" && !pixMetadata?.qrCodeBase64 && (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardContent className="text-center py-8">
+                  <AlertCircle className="mx-auto mb-4 h-12 w-12 text-orange-600" />
+                  <h3 className="mb-2 text-lg font-semibold text-orange-900">QR Code indisponível</h3>
+                  <p className="text-orange-700">Os dados do PIX não foram carregados corretamente. Recarregue a página.</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => window.location.reload()}
+                  >
+                    Recarregar
+                  </Button>
                 </CardContent>
               </Card>
             )}
