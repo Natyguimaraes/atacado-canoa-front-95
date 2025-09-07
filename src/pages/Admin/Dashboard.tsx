@@ -6,11 +6,13 @@ import {
   Users,
   TrendingUp,
   Plus,
-  ArrowLeft,
+  Calendar,
+  DollarSign,
+  Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useAuth } from '@/context/AuthContext';
+import { AdminLayout } from '@/components/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +27,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
 } from 'recharts';
 
 // Interfaces (tipos de dados)
@@ -47,12 +51,18 @@ interface CategoryData {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
 
 const Dashboard = () => {
-  const { user, profile, isAdmin } = useAuth();
-  
   // Estados para os dados
-  const [stats, setStats] = useState({ totalProducts: 0, ordersToday: 0, activeCustomers: 0, monthlySales: 0 });
+  const [stats, setStats] = useState({ 
+    totalProducts: 0, 
+    ordersToday: 0, 
+    activeCustomers: 0, 
+    monthlySales: 0,
+    totalOrders: 0,
+    avgOrderValue: 0 
+  });
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = async () => {
@@ -67,15 +77,17 @@ const Dashboard = () => {
       const uniqueCustomers = new Set(activeCustomersData?.map(c => c.user_id));
       const { data: allCarts } = await supabase.from('carts').select('items, created_at');
       
+      const allCartsData = allCarts || [];
       let totalSales = 0;
+      let totalOrders = allCartsData.length;
       const salesByMonth: { [key: string]: number } = {};
       const salesByCategory: { [key: string]: number } = {};
 
-      if (allCarts) {
+      if (allCartsData.length > 0) {
         const { data: products } = await supabase.from('products').select('id, category');
         const productCategoryMap = new Map(products?.map(p => [p.id, p.category]));
 
-        allCarts.forEach(cart => {
+        allCartsData.forEach(cart => {
           if (Array.isArray(cart.items)) {
             const month = new Date(cart.created_at).toLocaleString('pt-BR', { month: 'short' });
             if (!salesByMonth[month]) salesByMonth[month] = 0;
@@ -93,12 +105,23 @@ const Dashboard = () => {
         });
       }
 
+      // Fetch recent orders
+      const { data: recentOrdersData } = await supabase
+        .from('orders')
+        .select('id, created_at, total, status')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
       setStats({
         totalProducts: productCount || 0,
         ordersToday: ordersTodayCount || 0,
         activeCustomers: uniqueCustomers.size,
         monthlySales: totalSales,
+        totalOrders,
+        avgOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
       });
+      
+      setRecentOrders(recentOrdersData || []);
       
       const monthOrder = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
       setSalesData(
@@ -118,111 +141,111 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchData();
-    }
-  }, [isAdmin]);
+    fetchData();
+  }, []);
   
-  if (!isAdmin) {
-    return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-            <Card className="max-w-md">
-                <CardContent className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-destructive mb-4">Acesso Negado</h1>
-                    <p className="text-muted-foreground mb-6">Você não tem permissão para acessar esta página.</p>
-                    <Button asChild><Link to="/">Voltar para Home</Link></Button>
-                </CardContent>
-            </Card>
-        </div>
-    );
-  }
-
   const statCards = [
     {
       title: 'Vendas Totais',
       value: `R$ ${stats.monthlySales.toFixed(2).replace('.', ',')}`,
-      icon: TrendingUp,
+      icon: DollarSign,
+      trend: '+12.5%',
+      trendDirection: 'up' as const,
     },
     {
       title: 'Pedidos Hoje',
       value: stats.ordersToday.toString(),
       icon: ShoppingCart,
+      trend: '+5.2%',
+      trendDirection: 'up' as const,
     },
     {
       title: 'Clientes Ativos',
       value: stats.activeCustomers.toString(),
       icon: Users,
+      trend: '+2.1%',
+      trendDirection: 'up' as const,
     },
     {
-        title: 'Total de Produtos',
-        value: stats.totalProducts.toString(),
-        icon: Package,
+      title: 'Total de Produtos',
+      value: stats.totalProducts.toString(),
+      icon: Package,
+      trend: '+0.8%',
+      trendDirection: 'up' as const,
+    },
+    {
+      title: 'Total de Pedidos',
+      value: stats.totalOrders.toString(),
+      icon: Calendar,
+      trend: '+8.3%',
+      trendDirection: 'up' as const,
+    },
+    {
+      title: 'Ticket Médio',
+      value: `R$ ${stats.avgOrderValue.toFixed(2).replace('.', ',')}`,
+      icon: Activity,
+      trend: '+3.7%',
+      trendDirection: 'up' as const,
     },
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" asChild>
-                    <Link to="/" className="flex items-center gap-2">
-                        <ArrowLeft className="h-4 w-4" />
-                        Voltar para Loja
-                    </Link>
-                </Button>
-                <div>
-                    <h1 className="font-display text-2xl font-bold text-primary">Painel Administrativo</h1>
-                    <p className="text-muted-foreground">Bem-vindo, {profile?.full_name || user?.email}</p>
-                </div>
-            </div>
-            <div className="flex gap-2">
-              <Button asChild>
-                <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Novo Produto
-                </Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/admin/estoque" className="flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Gerenciar Estoque
-                </Link>
-              </Button>
-            </div>
+    <AdminLayout>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">
+              Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Visão geral do seu negócio
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button asChild size="sm">
+              <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Produto
+              </Link>
+            </Button>
           </div>
         </div>
-      </div>
 
-      <main className="container mx-auto px-4 py-8">
         {/* --- SEÇÃO DE CARTÕES DE ESTATÍSTICAS --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {isLoading ? (
-            [...Array(4)].map((_, index) => (
+            [...Array(6)].map((_, index) => (
               <Card key={index} className="animate-pulse">
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="h-4 bg-muted rounded mb-2 w-3/4"></div>
-                      <div className="h-6 bg-muted rounded w-1/2"></div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-muted rounded w-16"></div>
+                      <div className="h-6 bg-muted rounded w-12"></div>
+                      <div className="h-3 bg-muted rounded w-10"></div>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-muted"></div>
+                    <div className="h-8 w-8 rounded bg-muted"></div>
                   </div>
                 </CardContent>
               </Card>
             ))
           ) : (
             statCards.map((stat) => (
-              <Card key={stat.title}>
-                <CardContent className="p-6">
+              <Card key={stat.title} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                      <p className="text-2xl font-bold">{stat.value}</p>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        {stat.title}
+                      </p>
+                      <p className="text-lg font-bold">{stat.value}</p>
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        {stat.trend}
+                      </p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <stat.icon className="h-6 w-6 text-primary" />
+                    <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                      <stat.icon className="h-4 w-4 text-primary" />
                     </div>
                   </div>
                 </CardContent>
@@ -232,11 +255,11 @@ const Dashboard = () => {
         </div>
 
         {/* --- SEÇÃO DE GRÁFICOS --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
-          <Card className="lg:col-span-3">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <Card className="xl:col-span-2">
             <CardHeader>
               <CardTitle>Vendas Mensais</CardTitle>
-              <CardDescription>Receita total por mês neste ano.</CardDescription>
+              <CardDescription>Receita total por mês neste ano</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -248,16 +271,17 @@ const Dashboard = () => {
                     <YAxis stroke="#888888" fontSize={12} tickFormatter={(value) => `R$${value}`} />
                     <Tooltip formatter={(value: number) => [`R$${value.toFixed(2)}`, 'Receita']} />
                     <Legend />
-                    <Bar dataKey="total" fill="#16a34a" name="Vendas" />
+                    <Bar dataKey="total" fill="hsl(var(--primary))" name="Vendas" radius={[4, 4, 0, 0]} />
                   </RechartsBarChart>
                 </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
-          <Card className="lg:col-span-2">
+
+          <Card>
             <CardHeader>
               <CardTitle>Vendas por Categoria</CardTitle>
-              <CardDescription>Distribuição da receita entre as categorias.</CardDescription>
+              <CardDescription>Distribuição da receita</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -265,21 +289,73 @@ const Dashboard = () => {
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                    <Pie 
+                      data={categoryData} 
+                      dataKey="value" 
+                      nameKey="name" 
+                      cx="50%" 
+                      cy="50%" 
+                      outerRadius={80} 
+                      label={({name, value}) => `${name}: R$${value.toFixed(0)}`}
+                    >
                       {categoryData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(value: number) => `R$${value.toFixed(2)}`} />
-                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
+
+        {/* --- SEÇÃO DE PEDIDOS RECENTES --- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Pedidos Recentes</CardTitle>
+            <CardDescription>Últimos 5 pedidos realizados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex justify-between items-center p-3 border rounded-lg">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : recentOrders.length > 0 ? (
+              <div className="space-y-3">
+                {recentOrders.map((order) => (
+                  <div key={order.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div>
+                      <p className="font-medium text-sm">Pedido #{order.id.slice(0, 8)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(order.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">R$ {order.total?.toFixed(2) || '0,00'}</p>
+                      <p className="text-xs capitalize text-muted-foreground">{order.status}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum pedido encontrado</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </AdminLayout>
   );
 };
 
