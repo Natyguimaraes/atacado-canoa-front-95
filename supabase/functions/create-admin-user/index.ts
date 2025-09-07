@@ -23,7 +23,69 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    console.log("Attempting to create user");
+    console.log("Checking if admin user already exists");
+
+    // First check if user already exists
+    const { data: existingUsers, error: fetchError } = await supabaseAdmin.auth.admin.listUsers();
+    if (fetchError) {
+      throw fetchError;
+    }
+    
+    const existingUser = existingUsers.users.find(u => u.email === 'atacadocanoa@gmail.com');
+    
+    if (existingUser) {
+      console.log("User already exists, updating password and ensuring admin role");
+      
+      // Update password for existing user
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        existingUser.id,
+        { password: 'Admin@2025!' }
+      );
+      
+      if (updateError) {
+        console.error('Error updating password:', updateError);
+      }
+
+      // Ensure profile exists
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          user_id: existingUser.id,
+          full_name: 'Administrador Atacado Canoa',
+          email: 'atacadocanoa@gmail.com'
+        });
+
+      if (profileError) {
+        console.error('Error creating/updating profile:', profileError);
+      }
+
+      // Ensure admin role exists
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .upsert({
+          user_id: existingUser.id,
+          role: 'admin'
+        });
+
+      if (roleError) {
+        console.error('Error creating/updating admin role:', roleError);
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          message: 'Admin user already exists, password updated, admin role ensured',
+          user: existingUser,
+          email: 'atacadocanoa@gmail.com',
+          password: 'Admin@2025!'
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+    }
+
+    console.log("User doesn't exist, creating new admin user");
 
     // Create admin user with confirmed email
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -37,70 +99,6 @@ serve(async (req) => {
 
     if (userError) {
       console.error('Error creating user:', userError);
-      
-      // If user already exists, try to get the existing user
-      if (userError.message.includes('already registered')) {
-        console.log("User already exists, fetching existing user");
-        
-        const { data: existingUsers, error: fetchError } = await supabaseAdmin.auth.admin.listUsers();
-        if (fetchError) {
-          throw fetchError;
-        }
-        
-        const existingUser = existingUsers.users.find(u => u.email === 'atacadocanoa@gmail.com');
-        if (existingUser) {
-          console.log("Found existing user, updating password and ensuring admin role");
-          
-          // Update password for existing user
-          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-            existingUser.id,
-            { password: 'Admin@2025!' }
-          );
-          
-          if (updateError) {
-            console.error('Error updating password:', updateError);
-          }
-
-          // Ensure profile exists
-          const { error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .upsert({
-              user_id: existingUser.id,
-              full_name: 'Administrador Atacado Canoa',
-              email: 'atacadocanoa@gmail.com'
-            });
-
-          if (profileError) {
-            console.error('Error creating/updating profile:', profileError);
-          }
-
-          // Ensure admin role exists
-          const { error: roleError } = await supabaseAdmin
-            .from('user_roles')
-            .upsert({
-              user_id: existingUser.id,
-              role: 'admin'
-            });
-
-          if (roleError) {
-            console.error('Error creating/updating admin role:', roleError);
-          }
-          
-          return new Response(
-            JSON.stringify({ 
-              message: 'Admin user already exists, password updated, admin role ensured',
-              user: existingUser,
-              email: 'atacadocanoa@gmail.com',
-              password: 'Admin@2025!'
-            }),
-            { 
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 200 
-            }
-          );
-        }
-      }
-      
       throw userError;
     }
 
