@@ -10,6 +10,11 @@ import StatusPagamento from '@/pages/StatusPagamento';
 import Pedidos from '@/pages/Pedidos';
 import Dashboard from '@/pages/Admin/Dashboard';
 import CadastroProduto from '@/pages/Admin/CadastroProduto';
+import EstoqueManagement from '@/pages/Admin/EstoqueManagement';
+import AdminProdutos from '@/pages/Admin/AdminProdutos';
+import AdminPedidos from '@/pages/Admin/AdminPedidos';
+import AdminClientes from '@/pages/Admin/AdminClientes';
+import AdminConfiguracoes from '@/pages/Admin/AdminConfiguracoes';
 import CreateAdmin from '@/pages/CreateAdmin';
 import NotFound from '@/pages/NotFound';
 
@@ -27,7 +32,12 @@ const AppRouter = () => {
         <Route path="/status-pagamento/:id" element={<StatusPagamento />} />
         <Route path="/pedidos" element={<Pedidos />} />
         <Route path="/admin/dashboard" element={<Dashboard />} />
+        <Route path="/admin/produtos" element={<AdminProdutos />} />
         <Route path="/admin/cadastro-produto" element={<CadastroProduto />} />
+        <Route path="/admin/estoque" element={<EstoqueManagement />} />
+        <Route path="/admin/pedidos" element={<AdminPedidos />} />
+        <Route path="/admin/clientes" element={<AdminClientes />} />
+        <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
         <Route path="/create-admin" element={<CreateAdmin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

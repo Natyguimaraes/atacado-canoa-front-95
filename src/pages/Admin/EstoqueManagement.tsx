@@ -69,7 +69,6 @@ interface Product {
 }
 
 const EstoqueManagement = () => {
-  const { isAdmin } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,10 +114,8 @@ const EstoqueManagement = () => {
   }, [currentPage, searchTerm]);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchProducts();
-    }
-  }, [isAdmin, currentPage, fetchProducts]);
+    fetchProducts();
+  }, [currentPage, fetchProducts]);
   
   const handleDeleteProduct = async (id: string) => {
     try {
@@ -143,7 +140,7 @@ const EstoqueManagement = () => {
 
   const totalPages = Math.ceil(totalProducts / productsPerPage);
 
-  if (!isAdmin) {
+  return (
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
