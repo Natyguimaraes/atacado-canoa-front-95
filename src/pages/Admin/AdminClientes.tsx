@@ -38,10 +38,14 @@ const AdminClientes = () => {
   const fetchCustomers = async () => {
     setIsLoading(true);
     try {
-      // Buscar perfis de usuários
+      // Buscar perfis de usuários excluindo administradores
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          user_roles!inner(role)
+        `)
+        .neq('user_roles.role', 'admin')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
