@@ -9,10 +9,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import ShippingCalculator from '@/components/ShippingCalculator';
+
+interface ShippingOption {
+  service: string;
+  serviceName: string;
+  price: number;
+  deliveryTime: number;
+  error?: string;
+}
 
 const Carrinho = () => {
   const { cart, removeFromCart, updateQuantity, loading, clearCart } = useCart();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
 
   // Inicializar todos os itens como selecionados quando o carrinho carrega
   useEffect(() => {
@@ -48,15 +58,21 @@ const Carrinho = () => {
   
     if (!cart || cart.length === 0) {
       return (
-        <div className="container mx-auto px-4 py-8 text-center">
-          <Frown className="mx-auto h-12 w-12 md:h-16 md:w-16 text-muted-foreground mb-4" />
-          <h1 className="text-xl md:text-2xl font-bold mb-2">O seu carrinho está vazio</h1>
-          <p className="text-sm md:text-base text-muted-foreground mb-6">
-            Parece que você ainda não adicionou nenhum produto.
-          </p>
-          <Button asChild size="lg" className="h-11 md:h-12">
-            <Link to="/produtos">Começar a comprar</Link>
-          </Button>
+        <div className="bg-gray-50/40 min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-6 max-w-md mx-auto px-4">
+            <div className="w-24 h-24 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
+              <Frown className="w-12 h-12 text-gray-400" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-gray-900">Seu carrinho está vazio</h2>
+              <p className="text-gray-600">Que tal adicionar alguns produtos incríveis?</p>
+            </div>
+            <Button asChild size="lg" className="w-full sm:w-auto">
+              <Link to="/produtos">
+                Explorar Produtos
+              </Link>
+            </Button>
+          </div>
         </div>
       );
     }
@@ -64,164 +80,181 @@ const Carrinho = () => {
     const selectedCartItems = cart.filter(item => 
       selectedItems.has(`${item.product_id}-${item.size}-${item.color}`)
     );
-    const subtotal = selectedCartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-    const hasSelectedItems = selectedItems.size > 0;
 
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6 font-display">Meu Carrinho</h1>
-        
-        {/* Controle de Seleção Global */}
-        <div className="mb-4 md:mb-6 p-3 md:p-4 bg-muted/50 rounded-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="select-all"
-                checked={selectedItems.size === cart.length}
-                onCheckedChange={toggleSelectAll}
-                className="h-5 w-5"
-              />
-              <label htmlFor="select-all" className="text-sm font-medium">
-                {selectedItems.size === cart.length ? 'Desmarcar todos' : 'Selecionar todos'}
-              </label>
-            </div>
-            <span className="text-xs md:text-sm text-muted-foreground">
-              {selectedItems.size} de {cart.length} itens selecionados
+    const hasSelectedItems = selectedCartItems.length > 0;
+
+    const subtotal = selectedCartItems.reduce((total, item) => {
+      return total + (item.price * item.quantity);
+    }, 0);
+
+    // Calcular peso total (estimativa baseada nos produtos)
+    const totalWeight = selectedCartItems.reduce((total, item) => {
+      return total + (item.quantity * 200); // 200g por item (estimativa)
+    }, 0);
+
+    const shippingCost = selectedShipping ? selectedShipping.price : 0;
+    const total = subtotal + shippingCost;
+
+    const renderCartItems = () => (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              checked={selectedItems.size === cart.length && cart.length > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+            <span className="text-sm font-medium">
+              Selecionar todos ({cart.length} {cart.length === 1 ? 'item' : 'itens'})
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
-          <div className="xl:col-span-2 space-y-3 md:space-y-4">
-            {cart.map((item) => {
-              const itemKey = `${item.product_id}-${item.size}-${item.color}`;
-              const isSelected = selectedItems.has(itemKey);
-              
-              return (
-                <Card 
-                  key={itemKey} 
-                  className={`p-3 md:p-4 transition-all ${
-                    isSelected ? 'ring-2 ring-primary/20 bg-primary/5' : 'opacity-60'
-                  }`}
-                >
-                  {/* Layout Mobile: Vertical */}
-                  <div className="flex flex-col sm:hidden gap-3">
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleItemSelection(itemKey)}
-                        className="mt-1 h-5 w-5"
-                      />
+        {cart.map((item) => {
+          const itemKey = `${item.product_id}-${item.size}-${item.color}`;
+          const isSelected = selectedItems.has(itemKey);
+
+          return (
+            <Card key={itemKey} className={`transition-all ${isSelected ? 'ring-2 ring-primary ring-opacity-50' : ''}`}>
+              <CardContent className="p-4">
+                <div className="flex items-start space-x-4">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleItemSelection(itemKey)}
+                    className="mt-2"
+                  />
+                  
+                  <div className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0">
+                    {item.image ? (
                       <img
-                        src={item.image || '/placeholder.svg'}
+                        src={item.image}
                         alt={item.name}
-                        className="w-20 h-20 object-cover rounded-md"
+                        className="w-full h-full object-cover rounded-md"
                       />
-                      <div className="flex-grow min-w-0">
-                        <h2 className="font-semibold text-sm">{item.name}</h2>
-                        <p className="text-xs text-muted-foreground">
-                          {item.size && `Tamanho: ${item.size}`}
-                          {item.color && ` / Cor: ${item.color}`}
-                        </p>
-                        <p className="font-bold text-sm mt-1">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 rounded-md flex items-center justify-center">
+                        <span className="text-gray-400 text-xs">Sem imagem</span>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center border rounded-md">
-                        <Button variant="ghost" size="sm" onClick={() => updateQuantity(item.product_id, item.quantity - 1, item.size, item.color)}>
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-8 text-center text-sm">{item.quantity}</span>
-                        <Button variant="ghost" size="sm" onClick={() => updateQuantity(item.product_id, item.quantity + 1, item.size, item.color)}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeFromCart(item.product_id, item.size, item.color)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Layout Desktop: Horizontal */}
-                  <div className="hidden sm:flex items-center gap-4">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleItemSelection(itemKey)}
-                      className="h-5 w-5"
-                    />
-                    <img
-                      src={item.image || '/placeholder.svg'}
-                      alt={item.name}
-                      className="w-24 h-24 object-cover rounded-md"
-                    />
-                    <div className="flex-grow">
-                      <h2 className="font-semibold">{item.name}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {item.size && `Tamanho: ${item.size}`}
-                        {item.color && ` / Cor: ${item.color}`}
-                      </p>
-                      <p className="font-bold mt-1">R$ {item.price.toFixed(2).replace('.', ',')}</p>
-                    </div>
-                    <div className="flex items-center border rounded-md">
-                      <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.product_id, item.quantity - 1, item.size, item.color)}>
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-10 text-center">{item.quantity}</span>
-                      <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.product_id, item.quantity + 1, item.size, item.color)}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.product_id, item.size, item.color)}>
-                      <Trash2 className="h-5 w-5 text-destructive" />
-                    </Button>
+                  <div className="flex-grow min-w-0">
+                    <h3 className="font-medium text-sm md:text-base line-clamp-2">{item.name}</h3>
+                    {item.size && (
+                      <p className="text-xs md:text-sm text-gray-600 mt-1">Tamanho: {item.size}</p>
+                    )}
+                    {item.color && (
+                      <p className="text-xs md:text-sm text-gray-600">Cor: {item.color}</p>
+                    )}
+                    <p className="font-bold text-sm md:text-base mt-2">
+                      R$ {item.price.toFixed(2).replace('.', ',')}
+                    </p>
                   </div>
-                </Card>
-              );
-            })}
-          </div>
-          <div className="xl:col-span-1">
-            <div className="sticky top-4">
-            <Card className="w-full">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Resumo do Pedido</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                  <p>{selectedItems.size} {selectedItems.size === 1 ? 'item selecionado' : 'itens selecionados'}</p>
+
+                  <div className="flex flex-col items-end space-y-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeFromCart(item.product_id, item.size, item.color)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+
+                    <div className="flex items-center space-x-2 bg-gray-100 rounded-md">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateQuantity(item.product_id, item.quantity - 1, item.size, item.color)}
+                        disabled={item.quantity <= 1}
+                        className="h-8 w-8 hover:bg-gray-200"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="px-2 py-1 text-sm font-medium min-w-[2rem] text-center">
+                        {item.quantity}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateQuantity(item.product_id, item.quantity + 1, item.size, item.color)}
+                        className="h-8 w-8 hover:bg-gray-200"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm md:text-base">
-                  <span>Subtotal</span>
-                  <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
-                </div>
-                <div className="flex justify-between text-sm md:text-base">
-                  <span>Frete</span>
-                  <span>Grátis</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-bold text-base md:text-lg">
-                  <span>Total</span>
-                  <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
-                </div>
-                <Button 
-                  size="lg" 
-                  className="w-full text-sm md:text-base h-11 md:h-12" 
-                  asChild
-                  disabled={!hasSelectedItems}
-                >
-                  <Link to="/pagamento">
-                    <span className="hidden sm:inline">
-                      Finalizar Compra{hasSelectedItems ? ` (${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'itens'})` : ''}
-                    </span>
-                    <span className="sm:hidden">
-                      Finalizar ({selectedItems.size})
-                    </span>
-                  </Link>
-                </Button>
-                <Button variant="outline" className="w-full text-sm" onClick={clearCart}>
-                  Limpar Carrinho
-                </Button>
               </CardContent>
             </Card>
+          );
+        })}
+      </div>
+    );
+
+    return (
+      <div className="bg-gray-50/40 min-h-screen py-8">
+        <div className="container mx-auto px-4">
+          <h1 className="text-2xl md:text-3xl font-bold mb-6">Carrinho de Compras</h1>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              {renderCartItems()}
+            </div>
+            
+            <div className="lg:col-span-1 space-y-6">
+              {/* Calculadora de Frete */}
+              <ShippingCalculator 
+                weight={totalWeight}
+                onShippingSelected={setSelectedShipping}
+                selectedOption={selectedShipping}
+              />
+
+              {/* Resumo do Pedido */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumo do Pedido</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal ({selectedItems.size} {selectedItems.size === 1 ? 'item' : 'itens'})</span>
+                    <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                  {selectedShipping && (
+                    <div className="flex justify-between text-sm">
+                      <span>Frete ({selectedShipping.serviceName})</span>
+                      <span>R$ {selectedShipping.price.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                  )}
+                  {!selectedShipping && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Frete</span>
+                      <span>Calcule o frete</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between font-bold text-base md:text-lg">
+                    <span>Total</span>
+                    <span>R$ {total.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                  <Button 
+                    size="lg" 
+                    className="w-full text-sm md:text-base h-11 md:h-12" 
+                    asChild
+                    disabled={!hasSelectedItems}
+                  >
+                    <Link to="/pagamento" state={{ selectedShipping }}>
+                      <span className="hidden sm:inline">
+                        Finalizar Compra{hasSelectedItems ? ` (${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'itens'})` : ''}
+                      </span>
+                      <span className="sm:hidden">
+                        Finalizar ({selectedItems.size})
+                      </span>
+                    </Link>
+                  </Button>
+                  <Button variant="outline" className="w-full text-sm" onClick={clearCart}>
+                    Limpar Carrinho
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -230,7 +263,6 @@ const Carrinho = () => {
   };
 
   return (
-    // --- 3. Envolver o conteúdo com a estrutura da página ---
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
@@ -259,7 +291,7 @@ const CarrinhoSkeleton = () => (
           </Card>
         ))}
       </div>
-      <div className="lg:col-span-1">
+      <div className="lg:col-span-1 space-y-6">
         <Card>
           <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
           <CardContent className="space-y-4">
