@@ -97,7 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Check if user is admin by email first
       const { data: sessionData } = await supabase.auth.getUser();
-      if (sessionData.user?.email === 'admin@atacadocanoa.com') {
+      if (sessionData.user?.email === 'admin@atacadocanoa.com' || 
+          sessionData.user?.email === 'atacadocanoa@gmail.com') {
         setIsAdmin(true);
         return;
       }
