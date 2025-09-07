@@ -49,6 +49,13 @@ interface AppConfig {
     enableNotifications: boolean;
     enablePWA: boolean;
   };
+  store: {
+    name: string;
+    description: string;
+    zipCode: string;
+    city: string;
+    state: string;
+  };
 }
 
 class ConfigManager {
@@ -102,6 +109,13 @@ class ConfigManager {
         enableReviews: !envManager.isDevelopment, // Futuro
         enableNotifications: envManager.isProduction,
         enablePWA: envManager.isProduction
+      },
+      store: {
+        name: 'Atacado Canoa',
+        description: 'Loja de roupas atacado e varejo',
+        zipCode: '01001-000', // CEP da loja (São Paulo - SP)
+        city: 'São Paulo',
+        state: 'SP'
       }
     };
 
@@ -135,6 +149,10 @@ class ConfigManager {
 
   get features() {
     return this.config.features;
+  }
+
+  get store() {
+    return this.config.store;
   }
 
   // Verificar se uma feature está habilitada
@@ -182,5 +200,6 @@ export const {
   security: securityConfig,
   ui: uiConfig,
   monitoring: monitoringConfig,
-  features: featuresConfig
+  features: featuresConfig,
+  store: storeConfig
 } = config;

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
+import { storeConfig } from '@/lib/config';
 import { Json } from '@/integrations/supabase/types';
 
 interface Product {
@@ -122,15 +123,32 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      // Buscar CEP salvo do usuário
-      const savedAddress = localStorage.getItem(`address-${user.id}`);
-      if (!savedAddress) {
-        setShipping(null);
-        return;
+      // Primeiro tentar buscar do perfil do Supabase
+      let userCep = '';
+      
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('address')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (profile?.address && typeof profile.address === 'object') {
+          const addr = profile.address as any;
+          userCep = addr.zipCode || '';
+        }
+      } catch (error) {
+        console.log('Profile address not found, trying localStorage');
       }
-
-      const addressData = JSON.parse(savedAddress);
-      const userCep = addressData.zipCode;
+      
+      // Fallback: buscar CEP salvo no localStorage
+      if (!userCep) {
+        const savedAddress = localStorage.getItem(`address-${user.id}`);
+        if (savedAddress) {
+          const addressData = JSON.parse(savedAddress);
+          userCep = addressData.zipCode || '';
+        }
+      }
       
       if (!userCep || userCep.replace(/\D/g, '').length !== 8) {
         setShipping(null);
@@ -144,6 +162,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { data, error } = await supabase.functions.invoke('calculate-shipping', {
         body: {
+          originCep: storeConfig.zipCode, // CEP de origem da loja
           destinyCep: userCep.replace(/\D/g, ''),
           weight: totalWeight,
           length: 20,

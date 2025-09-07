@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Calculator, MapPin, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { storeConfig } from '@/lib/config';
 import { toast } from 'sonner';
 
 interface ShippingOption {
@@ -52,8 +53,8 @@ const ShippingCalculator = ({
     setShowResults(false);
 
     try {
-      // CEP de origem fixo (pode ser configurável no futuro)
-      const originCep = '01001-000'; // São Paulo - SP (exemplo)
+      // CEP de origem da loja
+      const originCep = storeConfig.zipCode;
       
       // Dimensões padrão do pacote (pode ser calculado baseado nos produtos)
       const packageDimensions = {

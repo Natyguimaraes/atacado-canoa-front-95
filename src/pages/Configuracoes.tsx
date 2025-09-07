@@ -62,12 +62,21 @@ const Configuracoes = () => {
       setFullName(profile.full_name || '');
       setPhone(profile.phone || '');
       setCpf(profile.cpf || '');
+      
+      // Carregar endereço do perfil se disponível
+      if (profile.address && typeof profile.address === 'object') {
+        const addr = profile.address as any;
+        setAddress(addr.street || '');
+        setZipCode(addr.zipCode || '');
+        setNeighborhood(addr.neighborhood || '');
+        setCity(addr.city || '');
+        setState(addr.state || '');
+      } else if (user) {
+        // Fallback: carregar do localStorage
+        loadSavedAddress();
+      }
+      
       setIsLoadingProfile(false);
-    }
-    
-    // Carregar endereço salvo
-    if (user) {
-      loadSavedAddress();
     }
   }, [profile, user]);
 
@@ -106,7 +115,15 @@ const Configuracoes = () => {
     setIsLoading(true);
 
     try {
-      // Atualizar perfil
+      // Atualizar perfil com endereço
+      const addressData = {
+        street: address,
+        zipCode,
+        neighborhood,
+        city,
+        state
+      };
+      
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -115,6 +132,7 @@ const Configuracoes = () => {
           phone: phone,
           cpf: cpf,
           email: user.email,
+          address: addressData,
         }, {
           onConflict: 'user_id'
         });
@@ -123,14 +141,7 @@ const Configuracoes = () => {
         throw new Error(profileError.message);
       }
 
-      // Por enquanto, salvar endereço no localStorage
-      const addressData = {
-        address,
-        zipCode,
-        neighborhood,
-        city,
-        state
-      };
+      // Também salvar no localStorage para compatibilidade
       localStorage.setItem(`address-${user.id}`, JSON.stringify(addressData));
 
       toast({
