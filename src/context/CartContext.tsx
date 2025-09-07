@@ -32,6 +32,7 @@ interface ShippingInfo {
 interface CartContextType {
   cart: CartItem[];
   shipping: ShippingInfo | null;
+  isCalculatingShipping: boolean;
   addToCart: (product: Product, quantity: number, size?: string, color?: string) => void;
   removeFromCart: (productId: string, size?: string, color?: string) => void;
   updateQuantity: (productId: string, quantity: number, size?: string, color?: string) => void;
@@ -50,10 +51,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [shipping, setShipping] = useState<ShippingInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
 
   const fetchCart = useCallback(async () => {
     if (!user) {
       setCart([]);
+      setShipping(null);
       setLoading(false);
       return;
     }
@@ -67,9 +70,18 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error && error.code !== 'PGRST116') throw error;
       if (data && data.items) {
-        setCart(data.items as unknown as CartItem[]);
+        const cartItems = data.items as unknown as CartItem[];
+        setCart(cartItems);
+        
+        // Calcular frete automaticamente se há itens no carrinho
+        if (cartItems.length > 0) {
+          calculateAutoShipping(cartItems);
+        } else {
+          setShipping(null);
+        }
       } else {
         setCart([]);
+        setShipping(null);
       }
     } catch (error: any) {
       toast.error('Erro ao buscar carrinho', { description: error.message });
@@ -103,6 +115,80 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [user]);
 
+  const calculateAutoShipping = async (cartItems: CartItem[]) => {
+    if (!user || cartItems.length === 0) {
+      setShipping(null);
+      return;
+    }
+
+    try {
+      // Buscar CEP salvo do usuário
+      const savedAddress = localStorage.getItem(`address-${user.id}`);
+      if (!savedAddress) {
+        setShipping(null);
+        return;
+      }
+
+      const addressData = JSON.parse(savedAddress);
+      const userCep = addressData.zipCode;
+      
+      if (!userCep || userCep.replace(/\D/g, '').length !== 8) {
+        setShipping(null);
+        return;
+      }
+
+      setIsCalculatingShipping(true);
+
+      // Calcular peso total do carrinho
+      const totalWeight = cartItems.reduce((total, item) => total + (item.quantity * 300), 0);
+
+      const { data, error } = await supabase.functions.invoke('calculate-shipping', {
+        body: {
+          destinyCep: userCep.replace(/\D/g, ''),
+          weight: totalWeight,
+          length: 20,
+          height: 10,
+          width: 15
+        }
+      });
+
+      if (error) throw error;
+
+      if (data && data.shippingOptions && data.shippingOptions.length > 0) {
+        // Usar a opção mais barata (PAC) como padrão
+        const cheapestOption = data.shippingOptions.reduce((prev: any, current: any) => 
+          current.price < prev.price ? current : prev
+        );
+        
+        setShipping({
+          service: cheapestOption.service,
+          price: cheapestOption.price,
+          days: cheapestOption.days,
+          cep: userCep
+        });
+      } else {
+        // Fallback com PAC
+        setShipping({
+          service: 'PAC',
+          price: 15.50,
+          days: '8 a 12',
+          cep: userCep
+        });
+      }
+    } catch (error: any) {
+      console.error('Erro ao calcular frete:', error);
+      // Fallback em caso de erro
+      setShipping({
+        service: 'PAC',
+        price: 15.50,
+        days: '8 a 12',
+        cep: 'N/A'
+      });
+    } finally {
+      setIsCalculatingShipping(false);
+    }
+  };
+
   const updateSupabaseCart = async (newCart: CartItem[]) => {
     if (!user) return;
     try {
@@ -111,6 +197,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         .upsert({ user_id: user.id, items: newCart as unknown as Json, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
       if (error) throw error;
       setCart(newCart);
+      
+      // Recalcular frete automaticamente
+      if (newCart.length > 0) {
+        calculateAutoShipping(newCart);
+      } else {
+        setShipping(null);
+      }
     } catch (error: any) {
       toast.error('Erro ao atualizar carrinho', { description: error.message });
       fetchCart();
@@ -189,6 +282,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     <CartContext.Provider value={{ 
       cart, 
       shipping,
+      isCalculatingShipping,
       addToCart, 
       removeFromCart, 
       updateQuantity, 

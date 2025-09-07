@@ -10,14 +10,13 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import ShippingCalculator from '@/components/ShippingCalculator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const Carrinho = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const { cart, removeFromCart, updateQuantity, clearCart, shipping, getTotal, getTotalWithShipping, loading } = useCart();
+  const { cart, removeFromCart, updateQuantity, clearCart, shipping, getTotal, getTotalWithShipping, loading, isCalculatingShipping } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [stockStatus, setStockStatus] = useState<{[key: string]: number}>({});
 
@@ -73,11 +72,7 @@ const Carrinho = () => {
       return;
     }
 
-    if (shipping) {
-      navigate('/pagamento', { state: { shipping } });
-    } else {
-      toast.error('Selecione uma opção de frete antes de continuar');
-    }
+    navigate('/pagamento', { state: { shipping } });
   };
 
   if (loading) {
@@ -256,13 +251,8 @@ const Carrinho = () => {
               })}
             </div>
 
-            {/* Sidebar - Frete e Resumo */}
+            {/* Sidebar - Resumo */}
             <div className="lg:col-span-1 space-y-6">
-              {/* Calculadora de Frete */}
-              <ShippingCalculator 
-                weight={cart.reduce((total, item) => total + (item.quantity * 300), 0)}
-              />
-
               {/* Resumo do Pedido */}
               <Card className="card-elegant">
                 <CardHeader>
@@ -278,15 +268,20 @@ const Carrinho = () => {
                       <span>R$ {total.toFixed(2).replace('.', ',')}</span>
                     </div>
                     
-                    {shipping ? (
+                    {isCalculatingShipping ? (
                       <div className="flex justify-between text-sm">
-                        <span>Frete ({shipping.service})</span>
+                        <span>Frete</span>
+                        <span className="text-muted-foreground">Calculando...</span>
+                      </div>
+                    ) : shipping ? (
+                      <div className="flex justify-between text-sm">
+                        <span>Frete ({shipping.service}) - {shipping.cep}</span>
                         <span>R$ {shipping.price.toFixed(2).replace('.', ',')}</span>
                       </div>
                     ) : (
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Frete</span>
-                        <span>Calcule o frete</span>
+                        <span>Configure seu CEP</span>
                       </div>
                     )}
                   </div>
@@ -305,10 +300,10 @@ const Carrinho = () => {
                       size="lg" 
                       className="w-full btn-gradient hover-scale" 
                       onClick={handleCheckout}
-                      disabled={!shipping}
+                      disabled={isCalculatingShipping}
                     >
                       <ShoppingCart className="mr-2 h-4 w-4" />
-                      Finalizar Compra
+                      {isCalculatingShipping ? 'Calculando frete...' : 'Finalizar Compra'}
                     </Button>
                     
                     <Button 
@@ -321,11 +316,11 @@ const Carrinho = () => {
                     </Button>
                   </div>
 
-                  {!shipping && (
+                  {!shipping && !isCalculatingShipping && (
                     <Alert>
                       <Package className="h-4 w-4" />
                       <AlertDescription className="text-xs">
-                        Calcule o frete para finalizar sua compra
+                        Configure seu CEP nas configurações para calcular o frete automaticamente
                       </AlertDescription>
                     </Alert>
                   )}
