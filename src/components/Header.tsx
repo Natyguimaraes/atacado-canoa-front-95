@@ -10,7 +10,6 @@ import {
   User, 
   LogOut, 
   Menu, 
-  Search, 
   Heart,
   Settings,
   Package
@@ -25,7 +24,6 @@ const Header = () => {
   const { cart } = useCart();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
 
@@ -42,13 +40,6 @@ const Header = () => {
     ...(isAdmin ? [{ href: '/admin/dashboard', label: 'Painel Admin', icon: Settings }] : []),
   ] : [];
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/produtos?search=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -62,19 +53,19 @@ const Header = () => {
   return (
     <AnimatedContainer animation="fade-in" className="sticky top-0 z-50">
       <header className="bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+        <div className="container mx-auto px-3 sm:px-4">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             
             {/* Logo */}
             <Link 
               to="/" 
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity focus-ring rounded-md"
+              className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity focus-ring rounded-md"
               aria-label="Atacado Canoa - Página inicial"
             >
               <ImageWithFallback
                 src={logoImg}
                 alt="Logo Atacado Canoa"
-                className="h-10 w-10 rounded-full"
+                className="h-12 w-12 sm:h-10 sm:w-10 rounded-full"
                 aspectRatio="1:1"
               />
               <span className="hidden sm:block font-display font-bold text-xl text-gradient">
@@ -83,7 +74,7 @@ const Header = () => {
             </Link>
 
             {/* Navegação Desktop */}
-            <nav className="hidden md:flex items-center gap-6" aria-label="Navegação principal">
+            <nav className="hidden md:flex items-center gap-6 flex-1 justify-center" aria-label="Navegação principal">
               {mainNavItems.map((item) => (
                 <Link
                   key={item.href}
@@ -95,23 +86,9 @@ const Header = () => {
               ))}
             </nav>
 
-            {/* Barra de Pesquisa */}
-            <div className="hidden lg:flex max-w-sm w-full">
-              <form onSubmit={handleSearch} className="relative w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="search"
-                  placeholder="Buscar produtos..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-full text-sm focus-ring transition-all hover:bg-muted/70"
-                  aria-label="Buscar produtos"
-                />
-              </form>
-            </div>
 
             {/* Ações do usuário */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               
               {/* Carrinho */}
               <Button
@@ -244,21 +221,6 @@ const Header = () => {
                       Atacado Canoa
                     </SheetTitle>
                   </SheetHeader>
-                  
-                  {/* Pesquisa Mobile */}
-                  <div className="mt-6 lg:hidden">
-                    <form onSubmit={handleSearch} className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <input
-                        type="search"
-                        placeholder="Buscar produtos..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-md text-sm focus-ring"
-                        aria-label="Buscar produtos"
-                      />
-                    </form>
-                  </div>
 
                   {/* Navegação Mobile */}
                   <nav className="mt-6 space-y-1" aria-label="Navegação principal">
