@@ -19,12 +19,17 @@ import Carrinho from "./pages/Carrinho";
 import Dashboard from "./pages/Admin/Dashboard";
 import CadastroProduto from "./pages/Admin/CadastroProduto";
 import EstoqueManagement from "./pages/Admin/EstoqueManagement";
+import AdminProdutos from "./pages/Admin/AdminProdutos";
+import AdminPedidos from "./pages/Admin/AdminPedidos";
+import AdminClientes from "./pages/Admin/AdminClientes";
+import AdminConfiguracoes from "./pages/Admin/AdminConfiguracoes";
 import Pagamento from "./pages/Pagamento";
 import Configuracoes from "./pages/Configuracoes";
 import Pedidos from "./pages/Pedidos";
 import StatusPagamento from "./pages/StatusPagamento";
 import NotFound from "./pages/NotFound";
 import Graficos from "./pages/Admin/Graficos";
+import CreateAdmin from "./pages/CreateAdmin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,9 +68,14 @@ const App = () => (
                     <Route path="/produto/:id" element={<ProductDetails />} />
                     <Route path="/carrinho" element={<Carrinho />} />
                     <Route path="/admin/dashboard" element={<Dashboard />} />
+                    <Route path="/admin/produtos" element={<AdminProdutos />} />
                     <Route path="/admin/cadastro-produto" element={<CadastroProduto />} />
                     <Route path="/admin/estoque" element={<EstoqueManagement />} />
+                    <Route path="/admin/pedidos" element={<AdminPedidos />} />
+                    <Route path="/admin/clientes" element={<AdminClientes />} />
+                    <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
                     <Route path="/admin/graficos" element={<Graficos />} />
+                    <Route path="/create-admin" element={<CreateAdmin />} />
                     <Route path="/pagamento" element={<Pagamento />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
                     <Route path="/pedidos" element={<Pedidos />} />
