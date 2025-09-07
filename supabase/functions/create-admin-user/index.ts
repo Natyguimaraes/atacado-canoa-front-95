@@ -6,6 +6,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function setupUserProfileAndRole(supabaseAdmin: any, user: any) {
+  console.log("Setting up profile and admin role for user:", user.id);
+
+  // Create/update profile for the user
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .upsert({
+      user_id: user.id,
+      full_name: 'Administrador Atacado Canoa',
+      email: 'atacadocanoa@gmail.com'
+    });
+
+  if (profileError) {
+    console.error('Error creating/updating profile:', profileError);
+  }
+
+  // Add/update admin role
+  const { error: roleError } = await supabaseAdmin
+    .from('user_roles')
+    .upsert({
+      user_id: user.id,
+      role: 'admin'
+    });
+
+  if (roleError) {
+    console.error('Error creating/updating admin role:', roleError);
+  }
+}
+
 serve(async (req) => {
   console.log("Function called");
   
@@ -25,111 +54,70 @@ serve(async (req) => {
 
     console.log("Checking if admin user already exists");
 
-    // First try to get the user by email using a different approach
-    let existingUser = null;
+    // First check if user already exists
+    const { data: existingUsers, error: fetchError } = await supabaseAdmin.auth.admin.listUsers();
+    if (fetchError) {
+      throw fetchError;
+    }
     
-    try {
-      const { data: existingUsers, error: fetchError } = await supabaseAdmin.auth.admin.listUsers();
-      if (!fetchError && existingUsers) {
-        existingUser = existingUsers.users.find(u => u.email === 'atacadocanoa@gmail.com');
-        console.log("Found existing users:", existingUsers.users.length);
-        console.log("Target user found:", !!existingUser);
-      }
-    } catch (e) {
-      console.log("Error fetching users:", e);
-    }
-
-    // Try to create the user first, and handle the error if it exists
-    try {
-      console.log("Attempting to create new admin user");
-      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-        email: 'atacadocanoa@gmail.com',
-        password: 'Admin@2025!',
-        email_confirm: true,
-        user_metadata: {
-          full_name: 'Administrador Atacado Canoa'
-        }
-      });
-
-      if (userError) {
-        throw userError;
-      }
-
-      console.log("User created successfully, adding admin role");
-      existingUser = userData.user;
-
-    } catch (createError) {
-      console.log("User creation failed:", createError);
+    const existingUser = existingUsers.users.find(u => u.email === 'atacadocanoa@gmail.com');
+    
+    if (existingUser) {
+      console.log("User already exists, updating password and confirming email");
       
-      // If user already exists, try to find and update them
-      if (createError.message && createError.message.includes('already registered')) {
-        console.log("User already exists, attempting to find and update");
-        
-        // Try to get users again after the error
-        const { data: existingUsers, error: fetchError } = await supabaseAdmin.auth.admin.listUsers();
-        if (!fetchError && existingUsers) {
-          existingUser = existingUsers.users.find(u => u.email === 'atacadocanoa@gmail.com');
+      // Update password and confirm email for existing user
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        existingUser.id,
+        { 
+          password: 'Admin@2025!',
+          email_confirm: true
         }
-
-        if (!existingUser) {
-          throw new Error('User exists but cannot be found in user list');
-        }
-
-        // Update password for existing user and confirm email
-        console.log("Updating password for existing user:", existingUser.id);
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-          existingUser.id,
-          { 
-            password: 'Admin@2025!',
-            email_confirm: true
-          }
-        );
-        
-        if (updateError) {
-          console.error('Error updating password:', updateError);
-        }
-      } else {
-        throw createError;
+      );
+      
+      if (updateError) {
+        console.error('Error updating user:', updateError);
       }
+
+      // Set up profile and role for existing user
+      await setupUserProfileAndRole(supabaseAdmin, existingUser);
+
+      return new Response(
+        JSON.stringify({ 
+          message: 'Admin user updated successfully',
+          user: existingUser,
+          email: 'atacadocanoa@gmail.com',
+          password: 'Admin@2025!'
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
     }
 
-    if (!existingUser) {
-      throw new Error('No user available after creation/update process');
+    // Create new user if doesn't exist
+    console.log("Creating new admin user");
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      email: 'atacadocanoa@gmail.com',
+      password: 'Admin@2025!',
+      email_confirm: true,
+      user_metadata: {
+        full_name: 'Administrador Atacado Canoa'
+      }
+    });
+
+    if (userError) {
+      console.error('Error creating user:', userError);
+      throw userError;
     }
 
-    console.log("Setting up profile and admin role for user:", existingUser.id);
-
-    // Create/update profile for the user
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        user_id: existingUser.id,
-        full_name: 'Administrador Atacado Canoa',
-        email: 'atacadocanoa@gmail.com'
-      });
-
-    if (profileError) {
-      console.error('Error creating/updating profile:', profileError);
-    }
-
-    // Add/update admin role
-    const { error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .upsert({
-        user_id: existingUser.id,
-        role: 'admin'
-      });
-
-    if (roleError) {
-      console.error('Error creating/updating admin role:', roleError);
-    }
-
-    console.log("Admin user setup completed successfully");
+    console.log("User created successfully, setting up profile and role");
+    await setupUserProfileAndRole(supabaseAdmin, userData.user);
 
     return new Response(
       JSON.stringify({ 
-        message: 'Admin user setup completed successfully',
-        user: existingUser,
+        message: 'Admin user created successfully',
+        user: userData.user,
         email: 'atacadocanoa@gmail.com',
         password: 'Admin@2025!'
       }),
