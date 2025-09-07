@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/carousel';
 import EditProductModal from './EditProductModal';
 import { useAuth } from '@/context/AuthContext';
+import { AdminLayout } from '@/components/AdminLayout';
 
 interface Product {
   id: string;
@@ -161,38 +162,33 @@ const EstoqueManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" asChild>
-                <Link to="/admin/dashboard" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Voltar para o Dashboard
-                </Link>
-              </Button>
-            </div>
-            <Button asChild>
-              <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Novo Produto
-              </Link>
-            </Button>
+    <AdminLayout>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Gestão de Estoque</h1>
+            <p className="text-muted-foreground">
+              Visualize, edite e gerencie todos os produtos do seu catálogo
+            </p>
           </div>
+          <Button asChild>
+            <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Novo Produto
+            </Link>
+          </Button>
         </div>
-      </div>
-      <main className="container mx-auto px-4 py-8">
+
+        {/* Search and Content */}
         <Card>
           <CardHeader>
-            <CardTitle>Gestão de Estoque</CardTitle>
-            <CardDescription>Visualize, edite e gerencie todos os produtos do seu catálogo.</CardDescription>
-            <div className="relative mt-4">
+            <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Buscar por nome do produto..."
-                className="pl-8 sm:w-1/3"
+                className="pl-8"
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
@@ -290,7 +286,7 @@ const EstoqueManagement = () => {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
 
       {/* Modal de Visualização */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
@@ -402,7 +398,7 @@ const EstoqueManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminLayout>
   );
 };
 
