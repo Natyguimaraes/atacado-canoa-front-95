@@ -75,11 +75,14 @@ serve(async (req) => {
           throw new Error('User exists but cannot be found in user list');
         }
 
-        // Update password for existing user
+        // Update password for existing user and confirm email
         console.log("Updating password for existing user:", existingUser.id);
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
           existingUser.id,
-          { password: 'Admin@2025!' }
+          { 
+            password: 'Admin@2025!',
+            email_confirm: true
+          }
         );
         
         if (updateError) {
