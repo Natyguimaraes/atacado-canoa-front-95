@@ -49,7 +49,7 @@ serve(async (req) => {
         
         const existingUser = existingUsers.users.find(u => u.email === 'atacadocanoa@gmail.com');
         if (existingUser) {
-          console.log("Found existing user, updating password");
+          console.log("Found existing user, updating password and ensuring admin role");
           
           // Update password for existing user
           const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -60,11 +60,38 @@ serve(async (req) => {
           if (updateError) {
             console.error('Error updating password:', updateError);
           }
+
+          // Ensure profile exists
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .upsert({
+              user_id: existingUser.id,
+              full_name: 'Administrador Atacado Canoa',
+              email: 'atacadocanoa@gmail.com'
+            });
+
+          if (profileError) {
+            console.error('Error creating/updating profile:', profileError);
+          }
+
+          // Ensure admin role exists
+          const { error: roleError } = await supabaseAdmin
+            .from('user_roles')
+            .upsert({
+              user_id: existingUser.id,
+              role: 'admin'
+            });
+
+          if (roleError) {
+            console.error('Error creating/updating admin role:', roleError);
+          }
           
           return new Response(
             JSON.stringify({ 
-              message: 'Admin user already exists, password updated',
-              user: existingUser
+              message: 'Admin user already exists, password updated, admin role ensured',
+              user: existingUser,
+              email: 'atacadocanoa@gmail.com',
+              password: 'Admin@2025!'
             }),
             { 
               headers: { ...corsHeaders, "Content-Type": "application/json" },

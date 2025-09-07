@@ -1,7 +1,7 @@
 // src/lib/mercadoPago.ts
 
 import { logger } from '@/lib/logger';
-import { invokeSupabaseFunction } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 // Interface para definir a estrutura da configuração esperada
 interface EnvironmentConfig {
@@ -28,7 +28,7 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
     logger.info('[App] Loading MP configuration from Supabase Function...');
     
     // Usar sempre teste por enquanto
-    const { data, error } = await invokeSupabaseFunction('debug-mp-config');
+    const { data, error } = await supabase.functions.invoke('debug-mp-config');
 
     // Se a função retornar um erro, lança para o bloco catch
     if (error) {
