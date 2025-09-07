@@ -10,6 +10,7 @@ import StatusPagamento from '@/pages/StatusPagamento';
 import Pedidos from '@/pages/Pedidos';
 import Dashboard from '@/pages/Admin/Dashboard';
 import CadastroProduto from '@/pages/Admin/CadastroProduto';
+import CreateAdmin from '@/pages/CreateAdmin';
 import NotFound from '@/pages/NotFound';
 
 const AppRouter = () => {
@@ -27,6 +28,7 @@ const AppRouter = () => {
         <Route path="/pedidos" element={<Pedidos />} />
         <Route path="/admin/dashboard" element={<Dashboard />} />
         <Route path="/admin/cadastro-produto" element={<CadastroProduto />} />
+        <Route path="/create-admin" element={<CreateAdmin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
