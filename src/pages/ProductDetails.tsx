@@ -93,6 +93,10 @@ const ProductDetails = () => {
       toast.error('Por favor, selecione um tamanho.');
       return;
     }
+    if (product.colors && product.colors.length > 0 && !selectedColor) {
+      toast.error('Por favor, selecione uma cor.');
+      return;
+    }
     if (quantity > product.stock) {
       toast.error('Quantidade indisponível em estoque.');
       return;
@@ -264,29 +268,60 @@ const ProductDetails = () => {
                 
                  {product.colors && product.colors.length > 0 && (
                   <div className="space-y-3">
-                    <h3 className="font-semibold text-base sm:text-lg">Cor:</h3>
+                    <h3 className="font-semibold text-base sm:text-lg">
+                      Cor: <span className="text-destructive">*</span>
+                    </h3>
                     <div className="flex flex-wrap gap-2 sm:gap-3">
-                      {product.colors.map((color) => (
-                        <div
-                          key={color}
-                          className={`relative flex items-center gap-2 p-2 sm:p-3 rounded-lg border-2 cursor-pointer transition-all hover-scale ${
-                            selectedColor === color 
-                              ? 'border-primary bg-primary/10' 
-                              : 'border-border bg-card hover:border-primary/50'
-                          }`}
-                          onClick={() => setSelectedColor(color)}
-                        >
-                          <div 
-                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-border shadow-sm"
-                            style={{ backgroundColor: color.toLowerCase() }}
-                          />
-                          <span className="font-medium text-xs sm:text-sm">{color}</span>
-                          {selectedColor === color && (
-                            <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full" />
-                          )}
-                        </div>
-                      ))}
+                      {product.colors.map((color) => {
+                        // Mapeamento de cores mais realista
+                        const getColorStyle = (colorName: string) => {
+                          const colorMap: { [key: string]: string } = {
+                            'branco': '#FFFFFF',
+                            'preto': '#000000',
+                            'azul': '#3B82F6',
+                            'vermelho': '#EF4444',
+                            'verde': '#10B981',
+                            'amarelo': '#F59E0B',
+                            'rosa': '#EC4899',
+                            'roxo': '#8B5CF6',
+                            'cinza': '#6B7280',
+                            'marrom': '#92400E',
+                            'laranja': '#F97316',
+                            'bege': '#F5F5DC',
+                          };
+                          return colorMap[colorName.toLowerCase()] || colorName.toLowerCase();
+                        };
+
+                        return (
+                          <div
+                            key={color}
+                            className={`relative flex items-center gap-2 p-2 sm:p-3 rounded-lg border-2 cursor-pointer transition-all hover-scale min-w-[80px] sm:min-w-[100px] ${
+                              selectedColor === color 
+                                ? 'border-primary bg-primary/10 ring-2 ring-primary/20' 
+                                : 'border-border bg-card hover:border-primary/50'
+                            }`}
+                            onClick={() => setSelectedColor(color)}
+                          >
+                            <div 
+                              className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-muted-foreground/20 shadow-md flex-shrink-0"
+                              style={{ 
+                                backgroundColor: getColorStyle(color),
+                                border: color.toLowerCase() === 'branco' ? '2px solid #E5E7EB' : '2px solid transparent'
+                              }}
+                            />
+                            <span className="font-medium text-xs sm:text-sm capitalize">{color}</span>
+                            {selectedColor === color && (
+                              <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full shadow-lg">
+                                <div className="w-full h-full bg-white rounded-full scale-50"></div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+                    {!selectedColor && (
+                      <p className="text-sm text-muted-foreground italic">Selecione uma cor para continuar</p>
+                    )}
                   </div>
                 )}
 
