@@ -30,6 +30,7 @@ import StatusPagamento from "./pages/StatusPagamento";
 import NotFound from "./pages/NotFound";
 import Graficos from "./pages/Admin/Graficos";
 import CreateAdmin from "./pages/CreateAdmin";
+import ConfirmarEmail from "./pages/ConfirmarEmail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,6 +65,7 @@ const App = () => (
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/cadastro" element={<Cadastro />} />
+                    <Route path="/confirmar-email" element={<ConfirmarEmail />} />
                     <Route path="/produtos" element={<Produtos />} />
                     <Route path="/produto/:id" element={<ProductDetails />} />
                     <Route path="/carrinho" element={<Carrinho />} />

@@ -46,17 +46,11 @@ const Cadastro = () => {
 
     try {
       await register(name, email, password);
-      toast({
-        title: 'Sucesso!',
-        description: 'Conta criada com sucesso.',
-      });
-      navigate('/');
+      // Não navegar imediatamente, deixar o AuthContext tratar a mensagem
+      // O usuário será notificado sobre verificação de email se necessário
     } catch (error) {
-      toast({
-        title: 'Erro no cadastro',
-        description: 'Tente novamente mais tarde.',
-        variant: 'destructive',
-      });
+      // Erro será tratado pelo AuthContext com toast
+      console.error('Erro no cadastro:', error);
     } finally {
       setIsLoading(false);
     }
