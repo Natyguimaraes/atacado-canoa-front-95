@@ -244,12 +244,12 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
   return (
     <Card className="card-elegant">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <MessageSquare className="h-5 w-5 text-primary" />
-            <span>Avaliações</span>
+            <span className="text-lg sm:text-xl">Avaliações</span>
             {totalReviews > 0 && (
-              <Badge variant="secondary">
+              <Badge variant="secondary" className="text-xs">
                 {totalReviews} {totalReviews === 1 ? 'avaliação' : 'avaliações'}
               </Badge>
             )}
@@ -260,7 +260,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
               variant="outline"
               size="sm"
               onClick={() => setShowReviewForm(true)}
-              className="hover-scale"
+              className="hover-scale w-full sm:w-auto"
             >
               {userReview ? 'Editar Avaliação' : 'Avaliar Produto'}
             </Button>
@@ -269,7 +269,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
 
         {/* Resumo das avaliações */}
         {totalReviews > 0 && (
-          <div className="flex items-center gap-4 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 pt-2">
             <div className="flex items-center gap-2">
               {renderStars(Math.round(averageRating), false, 'md')}
               <span className="font-bold text-lg">
@@ -310,11 +310,11 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 onClick={handleSubmitReview}
                 disabled={isSubmitting || rating === 0}
-                className="btn-gradient hover-scale"
+                className="btn-gradient hover-scale flex-1 sm:flex-none"
               >
                 {isSubmitting ? 'Enviando...' : userReview ? 'Atualizar' : 'Enviar Avaliação'}
               </Button>
@@ -331,6 +331,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
                     setComment('');
                   }
                 }}
+                className="flex-1 sm:flex-none"
               >
                 Cancelar
               </Button>
@@ -340,6 +341,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
                   variant="destructive"
                   onClick={handleDeleteReview}
                   size="sm"
+                  className="flex-1 sm:flex-none"
                 >
                   Remover
                 </Button>
@@ -376,31 +378,31 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
           <div className="space-y-4">
             {reviews.map((review, index) => (
               <div key={review.id}>
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-sm">
-                            {review.profiles?.full_name || 'Usuário Anônimo'}
-                          </span>
-                        </div>
-                        {renderStars(review.rating)}
-                      </div>
-                      
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>{formatDate(review.created_at)}</span>
-                      </div>
-                    </div>
+                 <div className="space-y-3">
+                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                     <div className="space-y-2 flex-1">
+                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                         <div className="flex items-center gap-2">
+                           <User className="h-4 w-4 text-muted-foreground" />
+                           <span className="font-medium text-sm">
+                             {review.profiles?.full_name || 'Usuário Anônimo'}
+                           </span>
+                         </div>
+                         {renderStars(review.rating)}
+                       </div>
+                       
+                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                         <Calendar className="h-3 w-3" />
+                         <span>{formatDate(review.created_at)}</span>
+                       </div>
+                     </div>
 
-                    {user && review.user_id === user.id && (
-                      <Badge variant="outline" className="text-xs">
-                        Sua avaliação
-                      </Badge>
-                    )}
-                  </div>
+                     {user && review.user_id === user.id && (
+                       <Badge variant="outline" className="text-xs shrink-0">
+                         Sua avaliação
+                       </Badge>
+                     )}
+                   </div>
 
                   {review.comment && (
                     <p className="text-sm text-muted-foreground leading-relaxed">
