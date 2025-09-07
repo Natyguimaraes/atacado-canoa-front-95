@@ -15,6 +15,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard, { ProductCardSkeleton } from '@/components/ProductCard';
 import ProductShippingCalculator from '@/components/ProductShippingCalculator';
+import ProductReviews from '@/components/ProductReviews';
+import { useProductReviews } from '@/hooks/useProductReviews';
 
 interface Product {
   id: string;
@@ -40,6 +42,9 @@ const ProductDetails = () => {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const { addToCart } = useCart();
+  
+  // Hook para estatísticas das avaliações
+  const { averageRating, totalReviews, isLoading: reviewsLoading } = useProductReviews(id || '');
 
   useEffect(() => {
     const fetchProductAndSuggestions = async () => {
@@ -197,12 +202,32 @@ const ProductDetails = () => {
                 </h1>
                 
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center text-warning">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-3 w-3 sm:h-4 sm:w-4 fill-current" />
-                    ))}
-                  </div>
-                  <span className="text-xs sm:text-sm text-muted-foreground">(148 avaliações)</span>
+                  {reviewsLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-24 bg-muted animate-pulse rounded" />
+                    </div>
+                  ) : totalReviews > 0 ? (
+                    <>
+                      <div className="flex items-center text-warning">
+                        {[...Array(5)].map((_, i) => (
+                          <Star 
+                            key={i} 
+                            className={`h-3 w-3 sm:h-4 sm:w-4 ${
+                              i < Math.round(averageRating) ? 'fill-current' : ''
+                            }`} 
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs sm:text-sm text-muted-foreground">
+                        {averageRating.toFixed(1)} ({totalReviews} {totalReviews === 1 ? 'avaliação' : 'avaliações'})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs sm:text-sm text-muted-foreground">
+                      Nenhuma avaliação ainda
+                    </span>
+                  )}
                 </div>
                 
                 <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
@@ -386,6 +411,9 @@ const ProductDetails = () => {
                   product={product} 
                   quantity={quantity} 
                 />
+
+                {/* Sistema de Avaliações */}
+                <ProductReviews productId={product.id} />
               </div>
             </div>
           </div>
