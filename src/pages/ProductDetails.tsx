@@ -14,6 +14,7 @@ import { Minus, Plus, Loader2, Heart, Share2, ShoppingCart, Star } from 'lucide-
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard, { ProductCardSkeleton } from '@/components/ProductCard';
+import ProductShippingCalculator from '@/components/ProductShippingCalculator';
 
 interface Product {
   id: string;
@@ -379,6 +380,12 @@ const ProductDetails = () => {
                     </Button>
                   </div>
                 </Card>
+
+                {/* Calculadora de Frete */}
+                <ProductShippingCalculator 
+                  product={product} 
+                  quantity={quantity} 
+                />
               </div>
             </div>
           </div>

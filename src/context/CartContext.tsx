@@ -22,14 +22,25 @@ interface CartItem {
   color?: string;
 }
 
+interface ShippingInfo {
+  service: string;
+  price: number;
+  days: string;
+  cep: string;
+}
+
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, quantity: number, size?: string, color?: string) => void; // <-- DEFINIÇÃO CORRETA AQUI
+  shipping: ShippingInfo | null;
+  addToCart: (product: Product, quantity: number, size?: string, color?: string) => void;
   removeFromCart: (productId: string, size?: string, color?: string) => void;
   updateQuantity: (productId: string, quantity: number, size?: string, color?: string) => void;
+  setShipping: (shipping: ShippingInfo | null) => void;
   clearCart: () => void;
   loading: boolean;
   itemCount: number;
+  getTotal: () => number;
+  getTotalWithShipping: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -37,6 +48,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [shipping, setShipping] = useState<ShippingInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCart = useCallback(async () => {
@@ -154,15 +166,39 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const clearCart = async () => {
     if (!user) {
       setCart([]);
+      setShipping(null);
       return;
     }
     await updateSupabaseCart([]); 
+    setShipping(null);
   };
   
   const itemCount = cart.reduce((total, item) => total + item.quantity, 0);
 
+  const getTotal = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const getTotalWithShipping = () => {
+    const cartTotal = getTotal();
+    const shippingCost = shipping?.price || 0;
+    return cartTotal + shippingCost;
+  };
+
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, loading, itemCount }}>
+    <CartContext.Provider value={{ 
+      cart, 
+      shipping,
+      addToCart, 
+      removeFromCart, 
+      updateQuantity, 
+      setShipping,
+      clearCart, 
+      loading, 
+      itemCount,
+      getTotal,
+      getTotalWithShipping
+    }}>
       {children}
     </CartContext.Provider>
   );
