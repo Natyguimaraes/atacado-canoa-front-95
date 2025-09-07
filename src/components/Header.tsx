@@ -53,33 +53,33 @@ const Header = () => {
   return (
     <AnimatedContainer animation="fade-in" className="sticky top-0 z-50">
       <header className="bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
-        <div className="container mx-auto px-3 sm:px-4">
-          <div className="flex items-center justify-between h-14 sm:h-16">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-16 sm:h-20">
             
             {/* Logo */}
             <Link 
               to="/" 
-              className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity focus-ring rounded-md"
+              className="flex items-center gap-3 sm:gap-4 hover:opacity-80 transition-opacity focus-ring rounded-md"
               aria-label="Atacado Canoa - Página inicial"
             >
               <ImageWithFallback
                 src={logoImg}
                 alt="Logo Atacado Canoa"
-                className="h-12 w-12 sm:h-10 sm:w-10 rounded-full"
+                className="h-12 w-12 sm:h-14 sm:w-14 rounded-full ring-2 ring-primary/20"
                 aspectRatio="1:1"
               />
-              <span className="hidden sm:block font-display font-bold text-xl text-gradient">
+              <span className="hidden sm:block font-display font-bold text-xl sm:text-2xl text-gradient">
                 Atacado Canoa
               </span>
             </Link>
 
             {/* Navegação Desktop */}
-            <nav className="hidden md:flex items-center gap-6 flex-1 justify-center" aria-label="Navegação principal">
+            <nav className="hidden md:flex items-center gap-8 flex-1 justify-center" aria-label="Navegação principal">
               {mainNavItems.map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}
-                  className="text-foreground hover:text-primary transition-colors story-link font-medium"
+                  className="text-foreground hover:text-primary transition-colors story-link font-medium text-lg"
                 >
                   {item.label}
                 </Link>
@@ -88,21 +88,21 @@ const Header = () => {
 
 
             {/* Ações do usuário */}
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-2 sm:gap-3">
               
               {/* Carrinho */}
               <Button
                 variant="ghost"
-                size="sm"
-                className="relative hover-scale focus-ring"
+                size="default"
+                className="relative hover-scale focus-ring p-2 sm:p-3"
                 onClick={() => navigate('/carrinho')}
                 aria-label={`Carrinho de compras - ${totalItems} ${totalItems === 1 ? 'item' : 'itens'}`}
               >
-                <ShoppingCart className="h-5 w-5" />
+                <ShoppingCart className="h-6 w-6 sm:h-7 sm:w-7" />
                 {totalItems > 0 && (
                   <Badge 
                     variant="destructive" 
-                    className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs animate-bounce-subtle"
+                    className="absolute -top-1 -right-1 h-6 w-6 flex items-center justify-center p-0 text-xs animate-bounce-subtle"
                   >
                     {totalItems}
                   </Badge>
@@ -112,12 +112,12 @@ const Header = () => {
               {/* Wishlist (futura funcionalidade) */}
               <Button
                 variant="ghost"
-                size="sm"
-                className="hidden sm:flex hover-scale focus-ring"
+                size="default"
+                className="hidden sm:flex hover-scale focus-ring p-2 sm:p-3"
                 aria-label="Lista de desejos"
                 disabled
               >
-                <Heart className="h-5 w-5" />
+                <Heart className="h-6 w-6 sm:h-7 sm:w-7" />
               </Button>
 
               {/* Usuário */}
@@ -126,17 +126,17 @@ const Header = () => {
                   <SheetTrigger asChild>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="hover-scale focus-ring"
+                      size="default"
+                      className="hover-scale focus-ring p-2 sm:p-3"
                       aria-label="Menu do usuário"
                     >
-                      <User className="h-5 w-5" />
+                      <User className="h-6 w-6 sm:h-7 sm:w-7" />
                     </Button>
                   </SheetTrigger>
                   <SheetContent side="right" className="w-80">
                     <SheetHeader className="text-left">
-                      <SheetTitle className="flex items-center gap-2">
-                        <User className="h-5 w-5" />
+                      <SheetTitle className="flex items-center gap-3">
+                        <User className="h-6 w-6" />
                         Minha Conta
                       </SheetTitle>
                     </SheetHeader>
@@ -160,7 +160,7 @@ const Header = () => {
                               to={item.href}
                               className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted/50 transition-colors text-sm"
                             >
-                              <Icon className="h-4 w-4" />
+                              <Icon className="h-5 w-5" />
                               {item.label}
                             </Link>
                           );
@@ -170,7 +170,7 @@ const Header = () => {
                           onClick={handleLogout}
                           className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors text-sm w-full text-left"
                         >
-                          <LogOut className="h-4 w-4" />
+                          <LogOut className="h-5 w-5" />
                           Sair
                         </button>
                       </nav>
@@ -202,20 +202,20 @@ const Header = () => {
                 <SheetTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="md:hidden hover-scale focus-ring"
+                    size="default"
+                    className="md:hidden hover-scale focus-ring p-2 sm:p-3"
                     aria-label="Abrir menu de navegação"
                   >
-                    <Menu className="h-5 w-5" />
+                    <Menu className="h-6 w-6 sm:h-7 sm:w-7" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="w-80">
                   <SheetHeader className="text-left">
-                    <SheetTitle className="flex items-center gap-2">
+                    <SheetTitle className="flex items-center gap-3">
                       <ImageWithFallback
                         src={logoImg}
                         alt=""
-                        className="h-6 w-6 rounded-full"
+                        className="h-8 w-8 rounded-full"
                         aspectRatio="1:1"
                       />
                       Atacado Canoa
