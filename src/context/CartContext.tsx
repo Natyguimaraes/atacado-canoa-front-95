@@ -91,9 +91,34 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [user]);
 
+  // Limpar cache antigo
+  const clearOldCache = useCallback(() => {
+    try {
+      const keys = Object.keys(localStorage);
+      const now = Date.now();
+      keys.forEach(key => {
+        if (key.startsWith('shipping-')) {
+          try {
+            const cached = JSON.parse(localStorage.getItem(key) || '{}');
+            // Remover cache mais antigo que 1 hora
+            if (cached.timestamp && now - cached.timestamp > 60 * 60 * 1000) {
+              localStorage.removeItem(key);
+            }
+          } catch (error) {
+            // Remover cache inválido
+            localStorage.removeItem(key);
+          }
+        }
+      });
+    } catch (error) {
+      console.log('Erro ao limpar cache:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCart();
-  }, [fetchCart]);
+    clearOldCache(); // Limpar cache antigo ao inicializar
+  }, [fetchCart, clearOldCache]);
 
   useEffect(() => {
     if (!user) return;
@@ -116,10 +141,29 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [user]);
 
-  const calculateAutoShipping = async (cartItems: CartItem[]) => {
+  const calculateAutoShipping = useCallback(async (cartItems: CartItem[]) => {
     if (!user || cartItems.length === 0) {
       setShipping(null);
       return;
+    }
+
+    // Cache key baseado no usuário e itens do carrinho
+    const cartHash = JSON.stringify(cartItems.map(item => ({ id: item.product_id, qty: item.quantity })));
+    const cacheKey = `shipping-${user.id}-${btoa(cartHash).slice(0, 10)}`;
+    
+    // Verificar cache primeiro (válido por 5 minutos)
+    const cachedResult = localStorage.getItem(cacheKey);
+    if (cachedResult) {
+      try {
+        const cached = JSON.parse(cachedResult);
+        if (Date.now() - cached.timestamp < 5 * 60 * 1000) { // 5 minutos
+          setShipping(cached.data);
+          setIsCalculatingShipping(false);
+          return;
+        }
+      } catch (error) {
+        console.log('Cache inválido, calculando novamente');
+      }
     }
 
     try {
@@ -150,8 +194,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
       
+      // Validar CEP antes de prosseguir
       if (!userCep || userCep.replace(/\D/g, '').length !== 8) {
         setShipping(null);
+        setIsCalculatingShipping(false);
         return;
       }
 
@@ -160,53 +206,88 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       // Calcular peso total do carrinho
       const totalWeight = cartItems.reduce((total, item) => total + (item.quantity * 300), 0);
 
-      const { data, error } = await supabase.functions.invoke('calculate-shipping', {
-        body: {
-          originCep: storeConfig.zipCode, // CEP de origem da loja
-          destinyCep: userCep.replace(/\D/g, ''),
-          weight: totalWeight,
-          length: 20,
-          height: 10,
-          width: 15
+      // Timeout para evitar espera excessiva
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 segundos
+
+      try {
+        const { data, error } = await supabase.functions.invoke('calculate-shipping', {
+          body: {
+            originCep: storeConfig.zipCode, // CEP de origem da loja
+            destinyCep: userCep.replace(/\D/g, ''),
+            weight: totalWeight,
+            length: 20,
+            height: 10,
+            width: 15
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (error) throw error;
+
+        let shippingResult = null;
+
+        if (data && data.options && data.options.length > 0) {
+          // Usar a opção mais barata (PAC) como padrão
+          const cheapestOption = data.options.reduce((prev: any, current: any) => 
+            current.price < prev.price ? current : prev
+          );
+          
+          shippingResult = {
+            service: cheapestOption.serviceName || cheapestOption.service,
+            price: cheapestOption.price,
+            days: cheapestOption.deliveryTime,
+            cep: userCep
+          };
+        } else {
+          // Fallback com PAC
+          shippingResult = {
+            service: 'PAC',
+            price: 15.50,
+            days: '8 a 12',
+            cep: userCep
+          };
         }
-      });
 
-      if (error) throw error;
-
-      if (data && data.shippingOptions && data.shippingOptions.length > 0) {
-        // Usar a opção mais barata (PAC) como padrão
-        const cheapestOption = data.shippingOptions.reduce((prev: any, current: any) => 
-          current.price < prev.price ? current : prev
-        );
+        setShipping(shippingResult);
         
-        setShipping({
-          service: cheapestOption.service,
-          price: cheapestOption.price,
-          days: cheapestOption.days,
-          cep: userCep
-        });
-      } else {
-        // Fallback com PAC
-        setShipping({
-          service: 'PAC',
-          price: 15.50,
-          days: '8 a 12',
-          cep: userCep
-        });
+        // Salvar no cache
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: shippingResult,
+          timestamp: Date.now()
+        }));
+
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.log('Cálculo de frete cancelado por timeout');
+        } else {
+          throw fetchError;
+        }
       }
+
     } catch (error: any) {
       console.error('Erro ao calcular frete:', error);
       // Fallback em caso de erro
-      setShipping({
+      const fallbackShipping = {
         service: 'PAC',
         price: 15.50,
         days: '8 a 12',
         cep: 'N/A'
-      });
+      };
+      setShipping(fallbackShipping);
+      
+      // Salvar fallback no cache por menos tempo (1 minuto)
+      const cacheKey = `shipping-${user.id}-fallback`;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: fallbackShipping,
+        timestamp: Date.now()
+      }));
     } finally {
       setIsCalculatingShipping(false);
     }
-  };
+  }, [user, storeConfig.zipCode]);
 
   const updateSupabaseCart = async (newCart: CartItem[]) => {
     if (!user) return;

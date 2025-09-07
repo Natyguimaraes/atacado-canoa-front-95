@@ -36,6 +36,10 @@ serve(async (req) => {
 
     // Validar CEPs
     const cepRegex = /^\d{5}-?\d{3}$/;
+    if (!originCep || !destinyCep) {
+      throw new Error('CEP de origem e destino são obrigatórios');
+    }
+    
     if (!cepRegex.test(originCep) || !cepRegex.test(destinyCep)) {
       throw new Error('CEP inválido');
     }
@@ -69,54 +73,86 @@ serve(async (req) => {
 
         console.log('Calling Correios API:', url.toString());
 
-        const response = await fetch(url.toString(), {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
+        // Timeout para evitar espera excessiva
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos
 
-        if (!response.ok) {
-          console.error('Correios API error:', response.status, response.statusText);
-          // Fallback para valores estimados
-          const serviceName = serviceCode === '04014' ? 'SEDEX' : serviceCode === '04510' ? 'PAC' : 'Correios';
-          shippingOptions.push({
-            service: serviceCode,
-            serviceName,
-            price: serviceCode === '04014' ? 25.90 : 15.90, // valores de exemplo
-            deliveryTime: serviceCode === '04014' ? 2 : 7, // dias úteis
-            error: 'Estimativa (API temporariamente indisponível)'
+        try {
+          const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            signal: controller.signal
           });
-          continue;
-        }
 
-        const xmlText = await response.text();
-        console.log('Correios response:', xmlText);
+          clearTimeout(timeoutId);
 
-        // Parse XML simplificado (pode ser melhorado com um parser XML)
-        const priceMatch = xmlText.match(/<Valor>([\d,]+)<\/Valor>/);
-        const timeMatch = xmlText.match(/<PrazoEntrega>(\d+)<\/PrazoEntrega>/);
-        const errorMatch = xmlText.match(/<Erro>(\d+)<\/Erro>/);
-        const errorMsgMatch = xmlText.match(/<MsgErro>([^<]+)<\/MsgErro>/);
+          if (!response.ok) {
+            console.error('Correios API error:', response.status, response.statusText);
+            // Fallback para valores estimados
+            const serviceName = serviceCode === '04014' ? 'SEDEX' : serviceCode === '04510' ? 'PAC' : 'Correios';
+            shippingOptions.push({
+              service: serviceCode,
+              serviceName,
+              price: serviceCode === '04014' ? 25.90 : 15.90, // valores de exemplo
+              deliveryTime: serviceCode === '04014' ? 2 : 7, // dias úteis
+              error: 'Estimativa (API temporariamente indisponível)'
+            });
+            continue;
+          }
 
-        if (errorMatch && errorMatch[1] !== '0') {
-          console.error('Correios service error:', errorMsgMatch?.[1] || 'Erro desconhecido');
-          continue;
-        }
+          const xmlText = await response.text();
+          console.log('Correios response:', xmlText);
 
-        const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0;
-        const deliveryTime = timeMatch ? parseInt(timeMatch[1]) : 0;
+          // Parse XML simplificado (pode ser melhorado com um parser XML)
+          const priceMatch = xmlText.match(/<Valor>([\d,]+)<\/Valor>/);
+          const timeMatch = xmlText.match(/<PrazoEntrega>(\d+)<\/PrazoEntrega>/);
+          const errorMatch = xmlText.match(/<Erro>(\d+)<\/Erro>/);
+          const errorMsgMatch = xmlText.match(/<MsgErro>([^<]+)<\/MsgErro>/);
 
-        const serviceName = serviceCode === '04014' ? 'SEDEX' : 
-                          serviceCode === '04510' ? 'PAC' : 
-                          `Correios ${serviceCode}`;
+          if (errorMatch && errorMatch[1] !== '0') {
+            console.error('Correios service error:', errorMsgMatch?.[1] || 'Erro desconhecido');
+            continue;
+          }
 
-        if (price > 0) {
+          const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0;
+          const deliveryTime = timeMatch ? parseInt(timeMatch[1]) : 0;
+
+          const serviceName = serviceCode === '04014' ? 'SEDEX' : 
+                            serviceCode === '04510' ? 'PAC' : 
+                            `Correios ${serviceCode}`;
+
+          if (price > 0) {
+            shippingOptions.push({
+              service: serviceCode,
+              serviceName,
+              price,
+              deliveryTime
+            });
+          }
+
+        } catch (fetchError: any) {
+          clearTimeout(timeoutId);
+          
+          if (fetchError.name === 'AbortError') {
+            console.log(`Timeout para serviço ${serviceCode}`);
+          } else {
+            console.error(`Fetch error for service ${serviceCode}:`, fetchError);
+          }
+          
+          // Fallback para valores estimados quando timeout ou erro
+          const serviceName = serviceCode === '04014' ? 'SEDEX' : serviceCode === '04510' ? 'PAC' : 'Correios';
+          const distance = calculateEstimatedDistance(cleanOriginCep, cleanDestinyCep);
+          const basePrice = serviceCode === '04014' ? 20 : 12;
+          const estimatedPrice = basePrice + (distance * 0.1) + (weight / 1000 * 2);
+          
           shippingOptions.push({
             service: serviceCode,
             serviceName,
-            price,
-            deliveryTime
+            price: Math.round(estimatedPrice * 100) / 100,
+            deliveryTime: serviceCode === '04014' ? Math.max(2, Math.floor(distance / 500)) : Math.max(5, Math.floor(distance / 300)),
+            error: fetchError.name === 'AbortError' ? 'Timeout - Valor estimado' : 'Estimativa baseada na distância'
           });
         }
 

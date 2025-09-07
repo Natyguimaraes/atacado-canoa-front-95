@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Package, Frown } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, Package, Frown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -270,7 +270,10 @@ const Carrinho = () => {
                     
                     {isCalculatingShipping ? (
                       <div className="flex justify-between text-sm">
-                        <span>Frete</span>
+                        <div className="flex items-center gap-2">
+                          <span>Frete</span>
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        </div>
                         <span className="text-muted-foreground">Calculando...</span>
                       </div>
                     ) : shipping ? (
