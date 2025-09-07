@@ -152,7 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (name: string, email: string, password: string) => {
   setIsLoading(true);
   try {
-    const redirectUrl = `${window.location.origin}/`;
+    // Use the correct Vercel URL for email confirmation
+    const isProduction = window.location.hostname !== 'localhost';
+    const redirectUrl = isProduction 
+      ? window.location.origin + '/'
+      : 'https://your-vercel-app.vercel.app/'; // Replace with your actual Vercel URL
     
     const { data, error: authError } = await supabase.auth.signUp({
       email,
