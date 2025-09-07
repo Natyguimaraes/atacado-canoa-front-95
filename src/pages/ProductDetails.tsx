@@ -390,35 +390,33 @@ const ProductDetails = () => {
             </div>
           </div>
           
-          {/* Seção de Produtos Relacionados */}
-          <section className="animate-fade-in">
-            <Card className="card-elegant p-4 sm:p-6 lg:p-8">
-              <div className="text-center mb-6 sm:mb-8">
-                <h2 className="text-2xl sm:text-3xl font-bold font-display text-gradient mb-2">
-                  Você também pode gostar
-                </h2>
-                <p className="text-sm sm:text-base text-muted-foreground">Produtos selecionados especialmente para você</p>
-              </div>
-              
-              {isSuggestionsLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-                  {[...Array(4)].map((_, i) => <ProductCardSkeleton key={i} />)}
+          {/* Seção de Produtos Relacionados - só aparece se houver sugestões */}
+          {(isSuggestionsLoading || suggestions.length > 0) && (
+            <section className="animate-fade-in">
+              <Card className="card-elegant p-4 sm:p-6 lg:p-8">
+                <div className="text-center mb-6 sm:mb-8">
+                  <h2 className="text-2xl sm:text-3xl font-bold font-display text-gradient mb-2">
+                    Você também pode gostar
+                  </h2>
+                  <p className="text-sm sm:text-base text-muted-foreground">Produtos selecionados especialmente para você</p>
                 </div>
-              ) : suggestions.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-                  {suggestions.map((p, index) => (
-                    <div key={p.id} className="animate-fade-in hover-scale" style={{ animationDelay: `${index * 0.1}s` }}>
-                      <ProductCard product={p} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 sm:py-12">
-                  <p className="text-muted-foreground text-sm sm:text-lg">Nenhum produto relacionado encontrado.</p>
-                </div>
-              )}
-            </Card>
-          </section>
+                
+                {isSuggestionsLoading ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+                    {[...Array(4)].map((_, i) => <ProductCardSkeleton key={i} />)}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+                    {suggestions.map((p, index) => (
+                      <div key={p.id} className="animate-fade-in hover-scale" style={{ animationDelay: `${index * 0.1}s` }}>
+                        <ProductCard product={p} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </section>
+          )}
         </div>
       </main>
       <Footer />
