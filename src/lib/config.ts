@@ -113,9 +113,9 @@ class ConfigManager {
       store: {
         name: 'Atacado Canoa',
         description: 'Loja de roupas atacado e varejo',
-        zipCode: '01001-000', // CEP da loja (São Paulo - SP)
-        city: 'São Paulo',
-        state: 'SP'
+        zipCode: '48000-211', // CEP da loja (Alagoas)
+        city: 'Arapiraca',
+        state: 'AL'
       }
     };
 
