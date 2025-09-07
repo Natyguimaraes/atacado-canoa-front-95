@@ -8,7 +8,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    historyApiFallback: true,
+    open: true,
+    strictPort: true,
   },
   plugins: [
     react(),
@@ -21,6 +22,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    outDir: 'dist',
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: undefined,
@@ -30,5 +33,7 @@ export default defineConfig(({ mode }) => ({
   preview: {
     port: 8080,
     host: "::",
+    open: true,
+    strictPort: true,
   },
 }));
