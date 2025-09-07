@@ -116,29 +116,29 @@ const AdminClientes = () => {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Clientes</h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Gerencie todos os clientes da loja
             </p>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Total Clientes
                   </p>
-                  <p className="text-2xl font-bold">{customers.length}</p>
+                  <p className="text-xl sm:text-2xl font-bold">{customers.length}</p>
                 </div>
-                <Users className="h-8 w-8 text-primary" />
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
               </div>
             </CardContent>
           </Card>

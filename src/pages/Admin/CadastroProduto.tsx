@@ -140,16 +140,16 @@ const CadastroProduto = () => {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Button variant="outline" size="icon" onClick={() => navigate('/admin/dashboard')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Cadastrar Novo Produto</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold">Cadastrar Novo Produto</h1>
+              <p className="text-muted-foreground text-sm sm:text-base">
                 Adicione um novo item ao catálogo
               </p>
             </div>

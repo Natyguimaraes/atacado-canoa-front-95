@@ -124,16 +124,16 @@ const AdminProdutos = () => {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Produtos</h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Gerencie todos os produtos da loja
             </p>
           </div>
-          <Button asChild>
+          <Button asChild className="w-full sm:w-auto">
             <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Novo Produto
@@ -146,8 +146,8 @@ const AdminProdutos = () => {
           <CardHeader>
             <CardTitle className="text-lg">Filtros</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardContent className="p-3 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -290,16 +290,18 @@ const AdminProdutos = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                             <Button size="sm" variant="outline" asChild>
                               <Link to={`/produto/${product.id}`}>
                                 <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline ml-1">Ver</span>
                               </Link>
                             </Button>
                             <Button
                               size="sm"
                               variant={product.is_active ? 'secondary' : 'default'}
                               onClick={() => toggleProductStatus(product.id, product.is_active)}
+                              className="w-full sm:w-auto"
                             >
                               {product.is_active ? 'Desativar' : 'Ativar'}
                             </Button>

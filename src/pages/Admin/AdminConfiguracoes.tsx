@@ -6,17 +6,17 @@ import { Settings, User, Store, Bell, Shield, Database } from 'lucide-react';
 const AdminConfiguracoes = () => {
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Configurações</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Gerencie as configurações do sistema
           </p>
         </div>
 
         {/* Configurações Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
           {/* Configurações da Loja */}
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>

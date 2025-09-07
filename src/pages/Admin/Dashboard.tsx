@@ -191,19 +191,19 @@ const Dashboard = () => {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center justify-between">
           <div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">
               Dashboard
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Visão geral do seu negócio
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button asChild size="sm">
+            <Button asChild size="sm" className="w-full sm:w-auto">
               <Link to="/admin/cadastro-produto" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
                 Novo Produto
@@ -213,11 +213,11 @@ const Dashboard = () => {
         </div>
 
         {/* --- SEÇÃO DE CARTÕES DE ESTATÍSTICAS --- */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
           {isLoading ? (
             [...Array(6)].map((_, index) => (
               <Card key={index} className="animate-pulse">
-                <CardContent className="p-4">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-2">
                       <div className="h-3 bg-muted rounded w-16"></div>
@@ -232,13 +232,13 @@ const Dashboard = () => {
           ) : (
             statCards.map((stat) => (
               <Card key={stat.title} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         {stat.title}
                       </p>
-                      <p className="text-lg font-bold">{stat.value}</p>
+                      <p className="text-lg sm:text-xl font-bold">{stat.value}</p>
                       <p className="text-xs text-green-600 flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
                         {stat.trend}
@@ -255,20 +255,20 @@ const Dashboard = () => {
         </div>
 
         {/* --- SEÇÃO DE GRÁFICOS --- */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
           <Card className="xl:col-span-2">
-            <CardHeader>
-              <CardTitle>Vendas Mensais</CardTitle>
-              <CardDescription>Receita total por mês neste ano</CardDescription>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-lg sm:text-xl">Vendas Mensais</CardTitle>
+              <CardDescription className="text-sm">Receita total por mês neste ano</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <Skeleton className="h-[300px] w-full" />
+                <Skeleton className="h-[250px] sm:h-[300px] w-full" />
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={250} className="sm:!h-[300px]">
                   <RechartsBarChart data={salesData}>
-                    <XAxis dataKey="name" stroke="#888888" fontSize={12} />
-                    <YAxis stroke="#888888" fontSize={12} tickFormatter={(value) => `R$${value}`} />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={10} className="sm:text-xs" />
+                    <YAxis stroke="#888888" fontSize={10} className="sm:text-xs" tickFormatter={(value) => `R$${value}`} />
                     <Tooltip formatter={(value: number) => [`R$${value.toFixed(2)}`, 'Receita']} />
                     <Legend />
                     <Bar dataKey="total" fill="hsl(var(--primary))" name="Vendas" radius={[4, 4, 0, 0]} />
