@@ -136,33 +136,34 @@ const Home = () => {
       
       <main>
         {/* Hero Section */}
-        <section id="home" className="relative min-h-[600px] flex items-center bg-gradient-hero">
+        <section id="home" className="relative min-h-[600px] flex items-center bg-gradient-to-br from-blue-50 to-purple-50">
           <div className="absolute inset-0">
             <img
               src={heroImage}
               alt="Loja Atacado Canoa"
-              className="w-full h-full object-cover opacity-20"
+              className="w-full h-full object-cover opacity-15"
             />
+            <div className="absolute inset-0 bg-white/30"></div>
           </div>
           <div className="relative container mx-auto px-4 py-20">
-            <div className="max-w-2xl">
-              <Badge className="mb-4 bg-secondary text-secondary-foreground">
+            <div className="max-w-2xl bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+              <Badge className="mb-4 bg-primary text-primary-foreground">
                 Seu porto seguro da economia
               </Badge>
               <h1 className="font-display text-4xl md:text-6xl font-bold text-primary mb-6">
                 Atacado Canoa
               </h1>
-              <p className="text-xl md:text-2xl text-foreground/80 mb-8">
+              <p className="text-xl md:text-2xl text-gray-700 mb-8 font-medium">
                 Moda para todas as idades e estilos. Do bebê ao adulto, tudo em um só lugar com qualidade e preço justo.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-gradient-primary text-white shadow-glow" asChild>
+                <Button size="lg" className="bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary text-white shadow-lg" asChild>
                   <Link to="/produtos">
                     Ver Produtos
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button variant="outline" size="lg" asChild>
+                <Button variant="outline" size="lg" className="bg-white/50 backdrop-blur-sm border-primary text-primary hover:bg-primary hover:text-white" asChild>
                   <a href="tel:+5575997129454" className="flex items-center gap-2">
                     <Phone className="h-4 w-4" />
                     (75) 99712-9454
