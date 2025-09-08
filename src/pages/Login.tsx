@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import WalkingCharacter from '@/components/WalkingCharacter';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -57,19 +58,10 @@ const Login = () => {
       <div className="absolute top-0 left-0 w-64 h-64 bg-gradient-to-br from-cyan-200/20 to-transparent rounded-full"></div>
       
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        {/* Walking character animation */}
+        <WalkingCharacter />
+        
         <div className="w-full max-w-md">
-          {/* Back button */}
-          <Button 
-            variant="ghost" 
-            asChild 
-            className="mb-6 text-white/80 hover:text-white hover:bg-white/10"
-          >
-            <Link to="/" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Voltar à loja
-            </Link>
-          </Button>
-
           <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm animate-fade-in">
             <CardHeader className="text-center pb-6">
               {/* Logo */}
