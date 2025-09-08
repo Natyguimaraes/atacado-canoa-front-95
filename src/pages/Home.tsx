@@ -150,10 +150,10 @@ const Home = () => {
               <Badge className="mb-4 bg-secondary text-secondary-foreground">
                 Seu porto seguro da economia
               </Badge>
-              <h1 className="font-display text-4xl md:text-6xl font-bold text-primary mb-6">
+              <h1 className="font-display text-4xl md:text-6xl font-bold text-white mb-6 drop-shadow-lg">
                 Atacado Canoa
               </h1>
-              <p className="text-xl md:text-2xl text-foreground/90 mb-8">
+              <p className="text-xl md:text-2xl text-white/95 mb-8 drop-shadow-md">
                 Moda para todas as idades e estilos. Do bebê ao adulto, tudo em um só lugar com qualidade e preço justo.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
