@@ -60,12 +60,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <div className="p-4">
             {/* Miniaturas das imagens */}
             {hasMultipleImages && (
-              <div className="flex justify-center gap-1 mb-3">
+              <div className="flex justify-start gap-1.5 mb-3">
                 {images.map((image, index) => (
                   <button
                     key={index}
                     onClick={(e) => handleImageIndicatorClick(index, e)}
-                    className={`w-8 h-8 rounded border-2 transition-all duration-200 overflow-hidden ${
+                    className={`w-10 h-10 rounded border-2 transition-all duration-200 overflow-hidden ${
                       index === currentImageIndex 
                         ? 'border-primary scale-110' 
                         : 'border-gray-300 hover:border-primary/50'
