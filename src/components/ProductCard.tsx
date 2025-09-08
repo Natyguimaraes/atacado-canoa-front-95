@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,15 +20,23 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
-  // --- INÍCIO DA CORREÇÃO ---
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
   // Se o produto não existir ou estiver a carregar, mostra um esqueleto.
   if (!product) {
     return <ProductCardSkeleton />;
   }
-  // --- FIM DA CORREÇÃO ---
 
   const hasDiscount = product.original_price && product.original_price > product.price;
   const isOutOfStock = product.stock === 0;
+  const images = product.images && product.images.length > 0 ? product.images : ['/placeholder.svg'];
+  const hasMultipleImages = images.length > 1;
+
+  const handleImageIndicatorClick = (index: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex(index);
+  };
 
   return (
     <Card className="overflow-hidden group transition-all hover:shadow-lg">
@@ -39,12 +48,35 @@ const ProductCard = ({ product }: ProductCardProps) => {
               {hasDiscount && !isOutOfStock && <Badge variant="destructive">Promoção</Badge>}
               {isOutOfStock && <Badge variant="destructive" className="text-base">Esgotado</Badge>}
             </div>
+            
+            {/* Imagem principal */}
             <img
-              src={product.images?.[0] || '/placeholder.svg'}
+              src={images[currentImageIndex]}
               alt={product.name}
-              className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${isOutOfStock ? 'grayscale' : ''}`}
+              className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${isOutOfStock ? 'grayscale' : ''}`}
             />
+            
+            {/* Indicadores de imagem */}
+            {hasMultipleImages && (
+              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 z-10">
+                <div className="flex gap-1.5 bg-black/30 backdrop-blur-sm rounded-full px-2 py-1">
+                  {images.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={(e) => handleImageIndicatorClick(index, e)}
+                      className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                        index === currentImageIndex 
+                          ? 'bg-white scale-125' 
+                          : 'bg-white/50 hover:bg-white/75'
+                      }`}
+                      aria-label={`Ver imagem ${index + 1} de ${images.length}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+          
           <div className="p-4">
             <h3 className="font-semibold text-lg truncate">{product.name}</h3>
             <div className="flex items-baseline gap-2 mt-2">
