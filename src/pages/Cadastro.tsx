@@ -60,8 +60,8 @@ const Cadastro = () => {
     <div className="min-h-screen bg-gradient-to-br from-gradient-start via-gradient-middle to-gradient-end relative overflow-hidden">
       {/* Decorative elements */}
       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
-      <div className="absolute top-10 right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-10 left-10 w-28 h-28 bg-accent/20 rounded-full blur-3xl animate-pulse delay-500"></div>
+      <div className="absolute top-10 right-10 w-40 h-40 bg-primary-glow/30 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-10 left-10 w-28 h-28 bg-gradient-middle/20 rounded-full blur-3xl animate-pulse delay-500"></div>
       
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4 py-12">
         <div className="w-full max-w-md">
@@ -79,12 +79,21 @@ const Cadastro = () => {
 
           <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm animate-fade-in">
             <CardHeader className="text-center pb-6">
+              {/* Logo */}
+              <div className="flex justify-center mb-6">
+                <img 
+                  src="/logo.png" 
+                  alt="Atacado Canoa" 
+                  className="h-16 w-auto object-contain"
+                />
+              </div>
+              
               <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-primary to-primary-glow rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-gradient-start via-gradient-middle to-gradient-end rounded-full flex items-center justify-center shadow-glow">
                   <UserPlus className="h-8 w-8 text-white" />
                 </div>
               </div>
-              <CardTitle className="font-display text-3xl text-gradient">
+              <CardTitle className="font-display text-3xl bg-gradient-to-r from-gradient-start via-gradient-middle to-gradient-end bg-clip-text text-transparent">
                 Criar sua conta
               </CardTitle>
               <CardDescription className="text-base text-muted-foreground mt-2">
@@ -187,7 +196,7 @@ const Cadastro = () => {
                 
                 <Button 
                   type="submit" 
-                  className="w-full h-12 bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 mt-6" 
+                  className="w-full h-12 bg-gradient-to-r from-gradient-start via-gradient-middle to-gradient-end hover:from-gradient-middle hover:via-gradient-end hover:to-gradient-start text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 mt-6" 
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -215,7 +224,7 @@ const Cadastro = () => {
                   <span className="text-sm text-muted-foreground">
                     Já tem uma conta?{' '}
                   </span>
-                  <Button variant="link" asChild className="p-0 h-auto text-primary font-medium hover:text-primary-glow">
+                  <Button variant="link" asChild className="p-0 h-auto text-gradient-middle font-medium hover:text-gradient-end">
                     <Link to="/login">Fazer login</Link>
                   </Button>
                 </div>
