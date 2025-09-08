@@ -136,23 +136,24 @@ const Home = () => {
       
       <main>
         {/* Hero Section */}
-        <section id="home" className="relative min-h-[600px] flex items-center bg-gradient-to-br from-blue-900/40 via-purple-800/30 to-pink-700/40">
+        <section id="home" className="relative min-h-[600px] flex items-center bg-gradient-hero">
           <div className="absolute inset-0">
             <img
               src={heroImage}
               alt="Loja Atacado Canoa"
-              className="w-full h-full object-cover opacity-40"
+              className="w-full h-full object-cover opacity-60"
             />
+            <div className="absolute inset-0 bg-black/40"></div>
           </div>
           <div className="relative container mx-auto px-4 py-20">
             <div className="max-w-2xl">
               <Badge className="mb-4 bg-secondary text-secondary-foreground">
                 Seu porto seguro da economia
               </Badge>
-              <h1 className="font-display text-4xl md:text-6xl font-bold text-white mb-6 drop-shadow-lg">
+              <h1 className="font-display text-4xl md:text-6xl font-bold text-primary mb-6">
                 Atacado Canoa
               </h1>
-              <p className="text-xl md:text-2xl text-white/95 mb-8 drop-shadow-md">
+              <p className="text-xl md:text-2xl text-foreground/90 mb-8">
                 Moda para todas as idades e estilos. Do bebê ao adulto, tudo em um só lugar com qualidade e preço justo.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
