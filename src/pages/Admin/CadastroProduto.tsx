@@ -37,6 +37,8 @@ const CadastroProduto = () => {
     description: '',
     category: '',
     price: '',
+    wholesalePrice: '',
+    retailPrice: '',
     originalPrice: '',
     sizes: [] as string[],
     colors: [] as string[],
@@ -114,7 +116,9 @@ const CadastroProduto = () => {
         name: formData.name,
         description: formData.description || null,
         category: formData.category,
-        price: parseFloat(formData.price),
+        price: parseFloat(formData.retailPrice), // Keep price as retail for compatibility
+        wholesale_price: parseFloat(formData.wholesalePrice),
+        retail_price: parseFloat(formData.retailPrice),
         original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
         sizes: formData.sizes,
         colors: formData.colors,
@@ -202,15 +206,27 @@ const CadastroProduto = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Preço de Venda *</Label>
+                  <Label htmlFor="wholesalePrice">Preço Atacado *</Label>
                   <Input 
-                    id="price" 
+                    id="wholesalePrice" 
                     type="number" 
                     step="0.01" 
-                    value={formData.price} 
-                    onChange={(e) => handleInputChange('price', e.target.value)} 
+                    value={formData.wholesalePrice} 
+                    onChange={(e) => handleInputChange('wholesalePrice', e.target.value)} 
+                    required 
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="retailPrice">Preço Varejo *</Label>
+                  <Input 
+                    id="retailPrice" 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.retailPrice} 
+                    onChange={(e) => handleInputChange('retailPrice', e.target.value)} 
                     required 
                     placeholder="0,00"
                   />
@@ -370,7 +386,8 @@ const CadastroProduto = () => {
                     isLoading || 
                     !formData.name || 
                     !formData.category || 
-                    !formData.price || 
+                    !formData.wholesalePrice || 
+                    !formData.retailPrice || 
                     formData.sizes.length === 0 || 
                     formData.images.length === 0 || 
                     !formData.stock

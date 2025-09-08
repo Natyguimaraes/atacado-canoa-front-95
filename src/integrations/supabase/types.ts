@@ -267,9 +267,11 @@ export type Database = {
           name: string
           original_price: number | null
           price: number
+          retail_price: number | null
           sizes: string[]
           stock: number
           updated_at: string
+          wholesale_price: number | null
         }
         Insert: {
           category: string
@@ -284,9 +286,11 @@ export type Database = {
           name: string
           original_price?: number | null
           price: number
+          retail_price?: number | null
           sizes?: string[]
           stock?: number
           updated_at?: string
+          wholesale_price?: number | null
         }
         Update: {
           category?: string
@@ -301,9 +305,11 @@ export type Database = {
           name?: string
           original_price?: number | null
           price?: number
+          retail_price?: number | null
           sizes?: string[]
           stock?: number
           updated_at?: string
+          wholesale_price?: number | null
         }
         Relationships: []
       }
