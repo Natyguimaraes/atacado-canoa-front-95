@@ -41,11 +41,20 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gradient-start via-gradient-middle to-gradient-end relative overflow-hidden">
-      {/* Decorative elements */}
-      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5"></div>
-      <div className="absolute top-20 left-20 w-28 h-28 bg-white/5 rounded-full blur-2xl"></div>
-      <div className="absolute bottom-20 right-20 w-20 h-20 bg-white/3 rounded-full blur-2xl"></div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 relative overflow-hidden">
+      {/* Floating boats animation */}
+      <div className="floating-boats">
+        <div className="boat">⛵</div>
+        <div className="boat">🚢</div>
+        <div className="boat">⛵</div>
+        <div className="boat">🛥️</div>
+        <div className="boat">⛵</div>
+        <div className="boat">🚤</div>
+      </div>
+      
+      {/* Decorative wave elements */}
+      <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-blue-200/30 to-transparent"></div>
+      <div className="absolute top-0 left-0 w-64 h-64 bg-gradient-to-br from-cyan-200/20 to-transparent rounded-full"></div>
       
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md">
