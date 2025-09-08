@@ -56,21 +56,27 @@ const ProductCard = ({ product }: ProductCardProps) => {
               className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${isOutOfStock ? 'grayscale' : ''}`}
             />
             
-            {/* Indicadores de imagem */}
+            {/* Miniaturas das imagens */}
             {hasMultipleImages && (
               <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 z-10">
-                <div className="flex gap-1.5 bg-black/30 backdrop-blur-sm rounded-full px-2 py-1">
-                  {images.map((_, index) => (
+                <div className="flex gap-1 bg-black/30 backdrop-blur-sm rounded-lg p-1">
+                  {images.map((image, index) => (
                     <button
                       key={index}
                       onClick={(e) => handleImageIndicatorClick(index, e)}
-                      className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                      className={`w-8 h-8 rounded border-2 transition-all duration-200 overflow-hidden ${
                         index === currentImageIndex 
-                          ? 'bg-white scale-125' 
-                          : 'bg-white/50 hover:bg-white/75'
+                          ? 'border-white scale-110' 
+                          : 'border-white/50 hover:border-white/75'
                       }`}
                       aria-label={`Ver imagem ${index + 1} de ${images.length}`}
-                    />
+                    >
+                      <img
+                        src={image}
+                        alt={`${product.name} - imagem ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
                   ))}
                 </div>
               </div>
