@@ -150,7 +150,7 @@ const Home = () => {
               <Badge className="mb-4 bg-secondary text-secondary-foreground">
                 Seu porto seguro da economia
               </Badge>
-              <h1 className="font-display text-4xl md:text-6xl font-bold text-white mb-6 drop-shadow-lg">
+              <h1 className="font-display text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-6 drop-shadow-lg">
                 Atacado Canoa
               </h1>
               <p className="text-xl md:text-2xl text-white/95 mb-8 drop-shadow-md">
