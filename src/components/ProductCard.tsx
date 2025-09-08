@@ -55,35 +55,33 @@ const ProductCard = ({ product }: ProductCardProps) => {
               alt={product.name}
               className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${isOutOfStock ? 'grayscale' : ''}`}
             />
-            
-            {/* Miniaturas das imagens */}
-            {hasMultipleImages && (
-              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 z-10">
-                <div className="flex gap-1 bg-black/30 backdrop-blur-sm rounded-lg p-1">
-                  {images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={(e) => handleImageIndicatorClick(index, e)}
-                      className={`w-8 h-8 rounded border-2 transition-all duration-200 overflow-hidden ${
-                        index === currentImageIndex 
-                          ? 'border-white scale-110' 
-                          : 'border-white/50 hover:border-white/75'
-                      }`}
-                      aria-label={`Ver imagem ${index + 1} de ${images.length}`}
-                    >
-                      <img
-                        src={image}
-                        alt={`${product.name} - imagem ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
           
           <div className="p-4">
+            {/* Miniaturas das imagens */}
+            {hasMultipleImages && (
+              <div className="flex justify-center gap-1 mb-3">
+                {images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={(e) => handleImageIndicatorClick(index, e)}
+                    className={`w-8 h-8 rounded border-2 transition-all duration-200 overflow-hidden ${
+                      index === currentImageIndex 
+                        ? 'border-primary scale-110' 
+                        : 'border-gray-300 hover:border-primary/50'
+                    }`}
+                    aria-label={`Ver imagem ${index + 1} de ${images.length}`}
+                  >
+                    <img
+                      src={image}
+                      alt={`${product.name} - imagem ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+            
             <h3 className="font-semibold text-lg truncate">{product.name}</h3>
             <div className="flex items-baseline gap-2 mt-2">
               <p className="text-xl font-bold text-primary">R$ {product.price.toFixed(2).replace('.', ',')}</p>
