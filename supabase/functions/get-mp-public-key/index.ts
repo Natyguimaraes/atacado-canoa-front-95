@@ -15,7 +15,8 @@ serve(async (req) => {
   try {
     // Detectar ambiente baseado na URL
     const isDevelopment = req.url.includes('localhost') || req.url.includes('127.0.0.1');
-    const environment = isDevelopment ? 'test' : 'production';
+    const isProduction = req.url.includes('atacado-canoa-front-95.vercel.app') || req.url.includes('vercel.app');
+    const environment = isProduction ? 'production' : (isDevelopment ? 'test' : 'production');
     
     console.log(`Detectado ambiente: ${environment}`);
     

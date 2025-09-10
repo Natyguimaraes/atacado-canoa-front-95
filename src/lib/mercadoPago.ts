@@ -49,9 +49,15 @@ export const getEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
   } catch (err) {
     logger.error('[App] Error loading MP configuration from Supabase, using fallback.', err);
     
-    // Fallback direto para a chave do .env
+    // Detectar ambiente para fallback correto
+    const isProduction = window.location.hostname.includes('atacado-canoa-front-95.vercel.app') || 
+                         window.location.hostname.includes('vercel.app');
+    
+    // Fallback baseado no ambiente
     return {
-      publicKey: "TEST-dfc36fd1-447c-4c28-ba97-740e7d046799",
+      publicKey: isProduction ? 
+        "APP_USR-edb5a218-3bc1-496e-b3d9-24d33475a5b5" : 
+        "TEST-dfc36fd1-447c-4c28-ba97-740e7d046799",
     };
   }
 };

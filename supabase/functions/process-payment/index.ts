@@ -25,10 +25,18 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    // Detectar ambiente baseado na origem da requisição
+    const origin = req.headers.get('origin') || '';
+    const isProduction = origin.includes('atacado-canoa-front-95.vercel.app') || origin.includes('vercel.app');
+    
+    const accessToken = isProduction 
+      ? Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_PROD') 
+      : (Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN_TEST') || Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN'));
+    
+    console.log(`Ambiente detectado: ${isProduction ? 'produção' : 'teste'}`);
     
     if (!accessToken) {
-      throw new Error('Token do Mercado Pago não configurado');
+      throw new Error('Token do Mercado Pago não configurado para o ambiente atual');
     }
 
     console.log("Calling Mercado Pago API...");
