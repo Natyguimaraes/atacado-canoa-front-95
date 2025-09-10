@@ -10,18 +10,30 @@ serve(async (req) => {
   }
 
   try {
-    const { orderData, paymentMethod, paymentData, idempotencyKey } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error("Erro ao fazer parse do JSON:", parseError);
+      throw new Error("Formato de dados inválido");
+    }
+
+    const { orderData, paymentMethod, paymentData, idempotencyKey } = requestBody;
 
     console.log("=== PROCESS PAYMENT ===");
     console.log("Order data:", JSON.stringify(orderData, null, 2));
     console.log("Payment method:", paymentMethod);
+    console.log("Payment data received:", JSON.stringify(paymentData, null, 2));
+    console.log("Idempotency key:", idempotencyKey);
 
     if (!orderData || !paymentMethod || !idempotencyKey) {
+      console.error("Missing required data:", { orderData: !!orderData, paymentMethod: !!paymentMethod, idempotencyKey: !!idempotencyKey });
       throw new Error("Dados da requisição incompletos.");
     }
     
     // Para PIX, paymentData pode ser null
     if (paymentMethod === 'credit' && !paymentData) {
+      console.error("Missing payment data for credit card");
       throw new Error("Dados do cartão são obrigatórios para pagamento com cartão.");
     }
     
