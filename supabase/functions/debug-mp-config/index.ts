@@ -29,23 +29,34 @@ serve(async (req) => {
       console.log(`${key}: ${value ? `${value.substring(0, 20)}...` : 'NOT SET'}`)
     }
     
-    // Use fallback logic
-    const publicKey = allEnvs.MERCADO_PAGO_PUBLIC_KEY_TEST || allEnvs.MERCADO_PAGO_PUBLIC_KEY
-    const accessToken = allEnvs.MERCADO_PAGO_ACCESS_TOKEN_TEST || allEnvs.MERCADO_PAGO_ACCESS_TOKEN
+    // Detectar ambiente baseado na origem da requisição
+    const origin = req.headers.get('origin') || '';
+    const isProduction = origin.includes('atacado-canoa-front-95.vercel.app') || origin.includes('vercel.app');
+    
+    console.log(`Environment detected: ${isProduction ? 'production' : 'test'} (origin: ${origin})`);
+    
+    // Usar chaves baseadas no ambiente
+    const publicKey = isProduction 
+      ? allEnvs.MERCADO_PAGO_PUBLIC_KEY_PROD 
+      : (allEnvs.MERCADO_PAGO_PUBLIC_KEY_TEST || allEnvs.MERCADO_PAGO_PUBLIC_KEY);
+      
+    const accessToken = isProduction 
+      ? allEnvs.MERCADO_PAGO_ACCESS_TOKEN_PROD 
+      : (allEnvs.MERCADO_PAGO_ACCESS_TOKEN_TEST || allEnvs.MERCADO_PAGO_ACCESS_TOKEN);
     
     if (!publicKey) {
-      throw new Error('No public key found in any environment variable')
+      throw new Error(`No public key found for ${isProduction ? 'production' : 'test'} environment`);
     }
     
     if (!accessToken) {
-      throw new Error('No access token found in any environment variable')
+      throw new Error(`No access token found for ${isProduction ? 'production' : 'test'} environment`);
     }
 
     return new Response(
       JSON.stringify({
         publicKey,
         accessToken,
-        environment: 'test',
+        environment: isProduction ? 'production' : 'test',
         debug: true
       }),
       {
