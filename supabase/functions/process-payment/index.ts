@@ -16,8 +16,13 @@ serve(async (req) => {
     console.log("Order data:", JSON.stringify(orderData, null, 2));
     console.log("Payment method:", paymentMethod);
 
-    if (!orderData || !paymentMethod || !paymentData || !idempotencyKey) {
+    if (!orderData || !paymentMethod || !idempotencyKey) {
       throw new Error("Dados da requisição incompletos.");
+    }
+    
+    // Para PIX, paymentData pode ser null
+    if (paymentMethod === 'credit' && !paymentData) {
+      throw new Error("Dados do cartão são obrigatórios para pagamento com cartão.");
     }
     
     const supabase = createClient(
@@ -39,8 +44,48 @@ serve(async (req) => {
       throw new Error('Token do Mercado Pago não configurado para o ambiente atual');
     }
 
+    // Criar payload do pagamento baseado no método
+    let finalPaymentData;
+    
+    if (paymentMethod === 'pix') {
+      finalPaymentData = {
+        transaction_amount: orderData.total_amount,
+        description: `Pedido #${Math.random().toString(36).substr(2, 9)}`,
+        payment_method_id: 'pix',
+        payer: {
+          email: orderData.shipping_data.email,
+          first_name: orderData.shipping_data.fullName.split(' ')[0] || '',
+          last_name: orderData.shipping_data.fullName.split(' ').slice(1).join(' ') || '',
+          identification: {
+            type: 'CPF',
+            number: orderData.shipping_data.cpf.replace(/\D/g, '')
+          }
+        }
+      };
+    } else if (paymentMethod === 'credit' && paymentData) {
+      finalPaymentData = {
+        transaction_amount: orderData.total_amount,
+        description: `Pedido #${Math.random().toString(36).substr(2, 9)}`,
+        payment_method_id: paymentData.payment_method_id,
+        token: paymentData.token,
+        installments: paymentData.installments,
+        issuer_id: paymentData.issuer_id,
+        payer: {
+          email: orderData.shipping_data.email,
+          first_name: orderData.shipping_data.fullName.split(' ')[0] || '',
+          last_name: orderData.shipping_data.fullName.split(' ').slice(1).join(' ') || '',
+          identification: {
+            type: 'CPF',
+            number: orderData.shipping_data.cpf.replace(/\D/g, '')
+          }
+        }
+      };
+    } else {
+      throw new Error(`Método de pagamento ${paymentMethod} não suportado ou dados incompletos`);
+    }
+
     console.log("=== PAYMENT DATA FOR MP ===");
-    console.log("Payment data to send:", JSON.stringify(paymentData, null, 2));
+    console.log("Final payment data:", JSON.stringify(finalPaymentData, null, 2));
     
     console.log("Calling Mercado Pago API...");
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
@@ -50,7 +95,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify(paymentData),
+      body: JSON.stringify(finalPaymentData),
     });
 
     const mpResult = await mpResponse.json();
