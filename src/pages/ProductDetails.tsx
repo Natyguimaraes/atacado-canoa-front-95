@@ -41,6 +41,8 @@ const ProductDetails = () => {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const { addToCart } = useCart();
   
   // Hook para estatísticas das avaliações
@@ -92,6 +94,59 @@ const ProductDetails = () => {
     
     fetchProductAndSuggestions();
   }, [id]);
+
+  // Verificar se o usuário está logado e se o produto está nos favoritos
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      
+      if (user && id) {
+        const { data } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('product_id', id)
+          .single();
+        
+        setIsFavorite(!!data);
+      }
+    };
+    
+    getUser();
+  }, [id]);
+
+  const handleFavoriteClick = async () => {
+    if (!user) {
+      toast.error('Faça login para adicionar produtos aos favoritos');
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('product_id', id);
+        
+        setIsFavorite(false);
+        toast.success('Produto removido dos favoritos');
+      } else {
+        await supabase
+          .from('favorites')
+          .insert({
+            user_id: user.id,
+            product_id: id
+          });
+        
+        setIsFavorite(true);
+        toast.success('Produto adicionado aos favoritos');
+      }
+    } catch (error) {
+      toast.error('Erro ao atualizar os favoritos');
+    }
+  };
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -190,8 +245,18 @@ const ProductDetails = () => {
                     {product.category}
                   </Badge>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" className="h-9 w-9">
-                      <Heart className="h-4 w-4" />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9"
+                      onClick={handleFavoriteClick}
+                      aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                    >
+                      <Heart className={`h-4 w-4 transition-colors ${
+                        isFavorite 
+                          ? 'fill-red-500 text-red-500' 
+                          : 'text-gray-600 hover:text-red-500'
+                      }`} />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-9 w-9">
                       <Share2 className="h-4 w-4" />

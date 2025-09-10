@@ -109,13 +109,13 @@ const Header = () => {
                 )}
               </Button>
 
-              {/* Wishlist (futura funcionalidade) */}
+              {/* Wishlist */}
               <Button
                 variant="ghost"
                 size="default"
                 className="hidden sm:flex hover-scale focus-ring p-2 sm:p-3"
-                aria-label="Lista de desejos"
-                disabled
+                aria-label="Lista de favoritos"
+                onClick={() => navigate('/favoritos')}
               >
                 <Heart className="h-6 w-6 sm:h-7 sm:w-7" />
               </Button>

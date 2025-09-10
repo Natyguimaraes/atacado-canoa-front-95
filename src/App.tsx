@@ -16,6 +16,7 @@ import Cadastro from "./pages/Cadastro";
 import Produtos from "./pages/Produtos";
 import ProductDetails from "./pages/ProductDetails";
 import Carrinho from "./pages/Carrinho";
+import Favoritos from "./pages/Favoritos";
 import Dashboard from "./pages/Admin/Dashboard";
 import CadastroProduto from "./pages/Admin/CadastroProduto";
 import EstoqueManagement from "./pages/Admin/EstoqueManagement";
@@ -69,6 +70,7 @@ const App = () => (
                     <Route path="/produtos" element={<Produtos />} />
                     <Route path="/produto/:id" element={<ProductDetails />} />
                     <Route path="/carrinho" element={<Carrinho />} />
+                    <Route path="/favoritos" element={<Favoritos />} />
                     <Route path="/admin/dashboard" element={<Dashboard />} />
                     <Route path="/admin/produtos" element={<AdminProdutos />} />
                     <Route path="/admin/cadastro-produto" element={<CadastroProduto />} />
