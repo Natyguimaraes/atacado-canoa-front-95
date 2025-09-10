@@ -152,11 +152,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (name: string, email: string, password: string) => {
   setIsLoading(true);
   try {
-    // Use the correct Vercel URL for email confirmation
-    const isProduction = window.location.hostname !== 'localhost';
-    const redirectUrl = isProduction 
-      ? window.location.origin + '/confirmar-email'
-      : 'https://your-vercel-app.vercel.app/confirmar-email';
+    // Use the correct URL for email confirmation
+    const redirectUrl = window.location.origin + '/confirmar-email';
+    
+    console.log('Email redirect URL:', redirectUrl);
     
     const { data, error: authError } = await supabase.auth.signUp({
       email,
@@ -172,13 +171,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user && !data.session) {
+      // Usuário criado mas precisa confirmar email
+      console.log('User created, waiting for email confirmation:', data.user.email);
       toast.success('Email de confirmação enviado!', {
-        description: 'Verifique sua caixa de entrada e clique no link para confirmar sua conta.',
+        description: `Verifique sua caixa de entrada (${data.user.email}) e clique no link para confirmar sua conta.`,
       });
-    } else {
+    } else if (data.user && data.session) {
+      // Usuário criado e já logado (confirmação desabilitada)
+      console.log('User created and logged in immediately:', data.user.email);
       toast.success('Conta criada com sucesso!', {
         description: 'Você agora está logado.',
       });
+    } else {
+      // Caso inesperado
+      console.log('Unexpected signup result:', data);
     }
 
   } catch (error) {
