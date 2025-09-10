@@ -172,8 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user && !data.session) {
-      toast.success('Verifique seu e-mail!', {
-        description: 'Um link de confirmação foi enviado para o seu endereço de e-mail.',
+      toast.success('Email de confirmação enviado!', {
+        description: 'Verifique sua caixa de entrada e clique no link para confirmar sua conta.',
       });
     } else {
       toast.success('Conta criada com sucesso!', {
