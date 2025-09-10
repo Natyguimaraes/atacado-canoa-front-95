@@ -39,6 +39,9 @@ serve(async (req) => {
       throw new Error('Token do Mercado Pago não configurado para o ambiente atual');
     }
 
+    console.log("=== PAYMENT DATA FOR MP ===");
+    console.log("Payment data to send:", JSON.stringify(paymentData, null, 2));
+    
     console.log("Calling Mercado Pago API...");
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',

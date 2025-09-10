@@ -57,11 +57,16 @@ const CardPaymentForm: React.FC<CardPaymentFormProps> = ({
   };
   
   const onSubmit = async (cardPaymentData: CardPaymentData) => {
+    console.log("CardPayment onSubmit data:", cardPaymentData);
+    
+    // O SDK do Mercado Pago já está retornando o token e outros dados
     // Adicionar número de parcelas selecionado
     const enhancedData = {
       ...cardPaymentData,
       installments: selectedInstallments
     };
+    
+    console.log("Enhanced card data:", enhancedData);
     onPaymentReady(enhancedData);
   };
   

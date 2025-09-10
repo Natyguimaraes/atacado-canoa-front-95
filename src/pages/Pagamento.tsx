@@ -203,6 +203,11 @@ const Pagamento = () => {
         },
       };
       
+      console.log("=== PAYMENT DEBUG ===");
+      console.log("Order data:", orderData);
+      console.log("Payment method:", paymentMethod);
+      console.log("Card payment data:", cardPaymentDataRef.current);
+      
       const paymentResult = await processPayment(
         orderData, 
         paymentMethod, 
@@ -316,6 +321,7 @@ const Pagamento = () => {
                           amount={orderTotal}
                           payerEmail={shippingData.email}
                           onPaymentReady={(data) => {
+                            console.log("=== CARD PAYMENT DATA RECEIVED ===", data);
                             cardPaymentDataRef.current = data;
                             setIsCardDataReady(true);
                             toast({ title: "Cartão validado", description: "Pode prosseguir com o pagamento." });
