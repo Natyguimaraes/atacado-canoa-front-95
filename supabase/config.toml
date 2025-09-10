@@ -2,3 +2,6 @@ project_id = "lcualhkpezggwqqmlywc"
 
 [functions.calculate-shipping]
 verify_jwt = false
+
+[functions.calculate-shipping-advanced]
+verify_jwt = false
