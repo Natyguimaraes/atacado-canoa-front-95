@@ -311,6 +311,14 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const addToCart = (product: Product, quantity: number, size?: string, color?: string) => {
+    // Verificar se o usuário está logado
+    if (!user) {
+      toast.error('Login necessário', {
+        description: 'Faça login para adicionar produtos ao carrinho'
+      });
+      return;
+    }
+
     const existingItemIndex = cart.findIndex(
       item => item.product_id === product.id && item.size === size && item.color === color
     );
