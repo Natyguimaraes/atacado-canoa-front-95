@@ -63,14 +63,15 @@ serve(async (req) => {
         }
       };
     } else if (paymentMethod === 'credit' && paymentData) {
+      // Os dados do cartão vêm do SDK do MP com essa estrutura
       finalPaymentData = {
-        transaction_amount: orderData.total_amount,
+        transaction_amount: paymentData.transaction_amount || orderData.total_amount,
         description: `Pedido #${Math.random().toString(36).substr(2, 9)}`,
         payment_method_id: paymentData.payment_method_id,
         token: paymentData.token,
-        installments: paymentData.installments,
+        installments: paymentData.installments || 1,
         issuer_id: paymentData.issuer_id,
-        payer: {
+        payer: paymentData.payer || {
           email: orderData.shipping_data.email,
           first_name: orderData.shipping_data.fullName.split(' ')[0] || '',
           last_name: orderData.shipping_data.fullName.split(' ').slice(1).join(' ') || '',
