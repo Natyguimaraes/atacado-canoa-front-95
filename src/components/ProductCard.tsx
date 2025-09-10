@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Heart } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface Product {
   id: string;
@@ -21,6 +24,8 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [user, setUser] = useState<any>(null);
   
   // Se o produto não existir ou estiver a carregar, mostra um esqueleto.
   if (!product) {
@@ -32,10 +37,80 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const images = product.images && product.images.length > 0 ? product.images : ['/placeholder.svg'];
   const hasMultipleImages = images.length > 1;
 
+  // Verificar se o usuário está logado e se o produto está nos favoritos
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      
+      if (user && product) {
+        const { data } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('product_id', product.id)
+          .single();
+        
+        setIsFavorite(!!data);
+      }
+    };
+    
+    getUser();
+  }, [product]);
+
   const handleImageIndicatorClick = (index: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setCurrentImageIndex(index);
+  };
+
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) {
+      toast({
+        title: "Login necessário",
+        description: "Faça login para adicionar produtos aos favoritos",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('product_id', product.id);
+        
+        setIsFavorite(false);
+        toast({
+          title: "Removido dos favoritos",
+          description: "Produto removido da sua lista de favoritos"
+        });
+      } else {
+        await supabase
+          .from('favorites')
+          .insert({
+            user_id: user.id,
+            product_id: product.id
+          });
+        
+        setIsFavorite(true);
+        toast({
+          title: "Adicionado aos favoritos",
+          description: "Produto adicionado à sua lista de favoritos"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao atualizar os favoritos",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -48,6 +123,22 @@ const ProductCard = ({ product }: ProductCardProps) => {
               {hasDiscount && !isOutOfStock && <Badge variant="destructive">Promoção</Badge>}
               {isOutOfStock && <Badge variant="destructive" className="text-base">Esgotado</Badge>}
             </div>
+            
+            {/* Botão de favoritos */}
+            <button
+              onClick={handleFavoriteClick}
+              className="absolute top-3 right-3 z-10 p-2 bg-white/80 hover:bg-white rounded-full transition-all duration-200 shadow-sm"
+              aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+            >
+              <Heart 
+                size={20} 
+                className={`transition-colors duration-200 ${
+                  isFavorite 
+                    ? 'fill-red-500 text-red-500' 
+                    : 'text-gray-600 hover:text-red-500'
+                }`}
+              />
+            </button>
             
             {/* Imagem principal */}
             <img
