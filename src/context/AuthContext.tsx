@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('Signup result:', { data, error: authError });
     console.log('User created:', data.user);
     console.log('Session created:', data.session);
-    console.log('Email confirmation required:', !data.session && data.user);
+    console.log('Email confirmation required:', !data.session && !!data.user);
 
     if (authError) {
       throw new Error(authError.message);
