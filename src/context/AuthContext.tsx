@@ -176,8 +176,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user && !data.session) {
-      // Usuário criado mas precisa confirmar email
-      console.log('User created, waiting for email confirmation:', data.user.email);
+      // Usuário criado mas precisa confirmar email - enviar email customizado
+      console.log('User created, sending custom confirmation email:', data.user.email);
+      
+      try {
+        // Gerar um token temporário para o email
+        const tempToken = data.user.id + '_' + Date.now();
+        
+        // Enviar email customizado via edge function
+        const emailResponse = await supabase.functions.invoke('send-auth-email', {
+          body: {
+            email: data.user.email,
+            token: tempToken,
+            token_hash: tempToken,
+            redirect_to: redirectUrl,
+            email_action_type: 'signup',
+            site_url: 'https://lcualhkpezggwqqmlywc.supabase.co'
+          }
+        });
+
+        if (emailResponse.error) {
+          console.error('Error sending custom email:', emailResponse.error);
+        } else {
+          console.log('Custom email sent successfully:', emailResponse.data);
+        }
+      } catch (emailError) {
+        console.error('Failed to send custom email:', emailError);
+      }
+      
       toast.success('Email de confirmação enviado!', {
         description: `Verifique sua caixa de entrada (${data.user.email}) e clique no link para confirmar sua conta.`,
       });
